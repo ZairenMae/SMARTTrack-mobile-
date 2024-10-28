@@ -1,37 +1,110 @@
-import { Tabs } from 'expo-router';
-import React from 'react';
+import React, { useState } from "react";
+import {
+  View,
+  StyleSheet,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+} from "react-native";
+import { Tabs } from "expo-router";
+import { MyTabBar } from "@/components/TabBar";
+import { Feather } from "@expo/vector-icons";
+import SideBar from "@/components/SideBar";
 
-import { TabBarIcon } from '@/components/navigation/TabBarIcon';
-import { Colors } from '@/constants/Colors';
-import { useColorScheme } from '@/hooks/useColorScheme';
+const TabLayout = ({ navigation }: any) => {
+  const [isSidebarVisible, setSidebarVisible] = useState(false);
 
-export default function TabLayout() {
-  const colorScheme = useColorScheme();
+  const toggleSidebar = () => {
+    setSidebarVisible((prev) => !prev);
+  };
+
+  const handleOutsidePress = () => {
+    if (isSidebarVisible) {
+      setSidebarVisible(false);
+    }
+  };
 
   return (
-    <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
-        headerShown: false,
-      }}>
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Home',
-          tabBarIcon: ({ color, focused }) => (
-            <TabBarIcon name={focused ? 'home' : 'home-outline'} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="explore"
-        options={{
-          title: 'Explore',
-          tabBarIcon: ({ color, focused }) => (
-            <TabBarIcon name={focused ? 'code-slash' : 'code-slash-outline'} color={color} />
-          ),
-        }}
-      />
-    </Tabs>
+    <View style={styles.container}>
+      {/* Overlay to detect outside clicks and close the sidebar */}
+      {isSidebarVisible && (
+        <TouchableWithoutFeedback onPress={handleOutsidePress}>
+          <View style={styles.overlay} />
+        </TouchableWithoutFeedback>
+      )}
+
+      {/* SideBar rendering */}
+      <View style={styles.sidebarContainer}>
+        {isSidebarVisible && <SideBar navigation={navigation} />}
+      </View>
+
+      {/* Main content with Tabs */}
+      <View style={styles.contentContainer}>
+        <Tabs
+          tabBar={(props) => <MyTabBar {...props} />}
+          screenOptions={{
+            headerLeft: () => (
+              <TouchableOpacity
+                onPress={toggleSidebar}
+                style={styles.menuButton}
+              >
+                <Feather name="menu" size={24} color="#F5C722" />
+              </TouchableOpacity>
+            ),
+            headerTitleAlign: "center",
+            headerRight: () => (
+              <View style={styles.circleButton} />
+            ),
+            headerStyle: {
+              backgroundColor: "#8A252C", // Set the header background color
+              zIndex: 2000, // Ensure header stays on top
+            },
+            headerTintColor: "#F5C722",
+          }}
+        >
+          <Tabs.Screen name="home" options={{ title: "Home" }} />
+          <Tabs.Screen name="room" options={{ title: "Room" }} />
+          <Tabs.Screen name="report" options={{ title: "Report" }} />
+          <Tabs.Screen name="schedule" options={{ title: "Schedule" }} />
+        </Tabs>
+      </View>
+    </View>
   );
-}
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    position: "relative",
+  },
+  contentContainer: {
+    flex: 1,
+  },
+  menuButton: {
+    marginLeft: 20,
+  },
+  circleButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#F5C722", // Customize the circle color
+    marginRight: 20, // Adjust spacing from the right
+  },
+  sidebarContainer: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
+    zIndex: 1000, // Sidebar zIndex should be below header zIndex but above content
+  },
+  overlay: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.5)", // Semi-transparent overlay
+    zIndex: 999, // Ensure it's behind the header but above the content
+  },
+});
+
+export default TabLayout;
