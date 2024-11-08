@@ -4,7 +4,8 @@ import { Picker } from '@react-native-picker/picker';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { FIREBASE_AUTH, FIREBASE_DB } from '@/FirebaseConfig';
-import { collection, addDoc } from 'firebase/firestore';
+import { doc, setDoc, deleteDoc } from 'firebase/firestore';
+
 
 const Register = () => {
   const [showPassword, setShowPassword] = useState(false);
@@ -37,7 +38,7 @@ const Register = () => {
       console.log('User registered:', userCredential.user);
   
       // Attempt to save user details to Firestore
-      await addDoc(collection(FIREBASE_DB, 'users'), {
+      await setDoc(doc(FIREBASE_DB, 'users', userCredential.user.uid), {
         uid: userCredential.user.uid,
         email,
         userType: selectedUserType,
@@ -47,11 +48,21 @@ const Register = () => {
         idNumber,
         createdAt: new Date(),
       });
+      
       console.log('User added to Firestore');
       alert('Registration successful!');
     } catch (error) {
       console.error('Error registering user:', error);
 
+    }
+  };
+
+  const deleteUserFromFirestore = async (uid: string) => {
+    try {
+      await deleteDoc(doc(FIREBASE_DB, 'users', uid));
+      console.log('User deleted from Firestore');
+    } catch (error) {
+      console.error('Error deleting user from Firestore:', error);
     }
   };
   
