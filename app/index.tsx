@@ -16,7 +16,7 @@ export default function SplashScreen() {
             } else {
                 router.replace("/auth/login"); // Navigate to login if not authenticated
             }
-        };
+        }; 
 
         setTimeout(() => {
             checkAuth();
