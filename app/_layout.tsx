@@ -33,7 +33,7 @@ export default function RootLayout() {
             ) : (
                 <>
                     <Stack.Screen name="auth/login" />
-                    <Stack.Screen name="auth/register"  />
+                    <Stack.Screen name="auth/register" />
                 </>
             )}
         </Stack>
@@ -56,7 +56,7 @@ const styles = StyleSheet.create({
     },
     box: {
         // React Native styles
-        shadowColor: '#000',
+        shadowColor: "#000",
         shadowOffset: {
             width: 0,
             height: 2,
