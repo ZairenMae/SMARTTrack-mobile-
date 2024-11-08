@@ -1,0 +1,3 @@
+[submodule "NSTP"]
+	path = NSTP
+	url = https://github.com/ZaiTakaki/NSTP.git
