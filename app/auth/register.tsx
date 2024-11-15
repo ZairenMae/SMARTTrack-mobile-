@@ -53,7 +53,7 @@ const Register = () => {
       alert('Registration successful!');
     } catch (error) {
       console.error('Error registering user:', error);
-
+      //kuwang ug alert
     }
   };
 

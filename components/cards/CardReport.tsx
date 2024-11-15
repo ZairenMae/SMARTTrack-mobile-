@@ -8,7 +8,7 @@ import {
     BackHandler,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
-import Modal from "@/components/Modal";
+import Modal from "../modal/Modal";
 
 interface CardReportProps {
     className?: string;

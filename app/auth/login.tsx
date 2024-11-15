@@ -1,17 +1,10 @@
 import React, { useState } from "react";
-import {
-    View,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    Image,
-    StyleSheet,
-    ActivityIndicator,
-} from "react-native";
+import {View, Text, TextInput, TouchableOpacity, Image, StyleSheet, ActivityIndicator,} from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { FIREBASE_AUTH } from "@/FirebaseConfig";
+import { FIREBASE_AUTH, FIREBASE_DB } from "@/FirebaseConfig";
 import { signInWithEmailAndPassword } from "firebase/auth";
+import { getDocs, query, where, collection } from "firebase/firestore";
 
 export default function Login() {
     const [idNumber, setIdNumber] = useState("");
@@ -27,25 +20,40 @@ export default function Login() {
 
     const handleSignIn = async () => {
         setLoading(true);
+
         try {
-            const userCredential = await signInWithEmailAndPassword(
-                auth,
-                idNumber,
-                password
+            // Query Firestore for the user with the given ID number
+            const userQuery = query(
+                collection(FIREBASE_DB, "users"),
+                where("idNumber", "==", idNumber)
             );
-            console.log(userCredential);
+            const querySnapshot = await getDocs(userQuery);
+
+            if (querySnapshot.empty) {
+                alert("User not found");
+                setLoading(false);
+                return;
+            }
+
+            // Assuming there's only one user with the ID number
+            const userDoc = querySnapshot.docs[0];
+            const userData = userDoc.data();
+
+            // Check if the password matches
+            if (userData.password !== password) {
+                alert("Incorrect password");
+                setLoading(false);
+                return;
+            }
+
+            // If the password is correct, authenticate with Firebase
+            await signInWithEmailAndPassword(auth, userData.email, password);
+
+            console.log("User signed in:", userData);
             router.push("/home");
         } catch (error) {
             console.log(error);
-            if ((error as any).code === "auth/invalid-email") {
-                alert("Invalid email format");
-            } else if ((error as any).code === "auth/wrong-password") {
-                alert("Incorrect password");
-            } else if ((error as any).code === "auth/user-not-found") {
-                alert("User not found");
-            } else {
-                alert("Error signing in: " + (error as any).message);
-            }
+            alert("Error signing in: " + (error as Error).message);
         } finally {
             setLoading(false);
         }
@@ -95,16 +103,14 @@ export default function Login() {
                     />
                 </View>
 
-                {/* Forgot Password Link aligned to the right */}
                 <View style={styles.forgotPasswordContainer}>
-                <TouchableOpacity
-                   onPress={() =>
-                             router.push("/auth/forgot-password" as any)
-                            }
-                        >
-                    <Text style={styles.forgotPasswordText}>Forgot password?</Text>
-                </TouchableOpacity>
-
+                    <TouchableOpacity
+                        onPress={() =>
+                            router.push("/auth/forgot-password" as any)
+                        }
+                    >
+                        <Text style={styles.forgotPasswordText}>Forgot password?</Text>
+                    </TouchableOpacity>
                 </View>
 
                 <TouchableOpacity
@@ -187,7 +193,7 @@ const styles = StyleSheet.create({
         top: 12,
     },
     forgotPasswordContainer: {
-        alignItems: "flex-end", // Aligns "Forgot password?" text to the right
+        alignItems: "flex-end",
         marginBottom: 20,
     },
     forgotPasswordText: {

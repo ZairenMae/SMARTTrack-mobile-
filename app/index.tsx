@@ -1,7 +1,6 @@
-// app/index.tsx
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { ImageBackground, StyleSheet } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function SplashScreen() {
@@ -16,7 +15,7 @@ export default function SplashScreen() {
             } else {
                 router.replace("/auth/login"); // Navigate to login if not authenticated
             }
-        }; 
+        };
 
         setTimeout(() => {
             checkAuth();
@@ -24,22 +23,20 @@ export default function SplashScreen() {
     }, []);
 
     return (
-        <View style={styles.container}>
-            <Text style={styles.text}>Welcome to MyApp!</Text>
-            <Text style={styles.text}>Loading...</Text>
-        </View>
+        <ImageBackground
+            source={require("E:/4th yr/IT332/SmartTrack/NSTP/assets/images/Splash_logo.png")}
+            style={styles.background}
+            resizeMode="cover"
+        >
+            {/* Empty View to ensure the image covers the whole screen */}
+        </ImageBackground>
     );
 }
 
 const styles = StyleSheet.create({
-    container: {
+    background: {
         flex: 1,
-        justifyContent: "center",
-        alignItems: "center",
-        color: "black",
-    },
-    text: {
-        fontSize: 24,
-        fontWeight: "bold",
+        width: '100%',
+        height: '100%',
     },
 });
