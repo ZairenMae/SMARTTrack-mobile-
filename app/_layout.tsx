@@ -3,6 +3,7 @@ import { View, Text, StyleSheet } from "react-native";
 import { useState, useEffect } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+
 export default function RootLayout() {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [loading, setLoading] = useState(true);
@@ -34,6 +35,8 @@ export default function RootLayout() {
                 <>
                     <Stack.Screen name="auth/login" />
                     <Stack.Screen name="auth/register" />
+                    <Stack.Screen name="FacultyPage" />
+                    <Stack.Screen name="UserPage" />
                 </>
             )}
         </Stack>

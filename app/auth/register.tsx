@@ -17,27 +17,59 @@ const Register = () => {
   const [middleName, setMiddleName] = useState('');
   const [lastName, setLastName] = useState('');
   const [idNumber, setIdNumber] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
 
   const toggleShowPassword = () => {
     setShowPassword(!showPassword);
   };
 
+  const validateEmail = (email: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const validateIdNumber = (idNumber: string) => {
+    const idNumberRegex = /^\d{2}-\d{4}-\d{3}$/;
+    return idNumberRegex.test(idNumber);
+  };
+
+  const validatePassword = (password: string) => {
+    // Password must be at least 8 characters long, contain at least one uppercase letter
+    const passwordRegex = /^(?=.*[A-Z]).{8,}$/;
+    return passwordRegex.test(password);
+  };
+
   const handleRegister = async () => {
     if (!email || !password || !confirmPassword || !selectedUserType || !firstName || !lastName || !idNumber) {
-      alert('Please fill in all fields.');
+      setErrorMessage('Please fill in all fields.');
       return;
     }
-  
+
+    if (!validateEmail(email)) {
+      setErrorMessage('Please enter a valid email.');
+      return;
+    }
+
+    if (!validateIdNumber(idNumber)) {
+      setErrorMessage('Please enter a valid ID number (e.g., 12-3456-789).');
+      return;
+    }
+
+    if (!validatePassword(password)) {
+      setErrorMessage('Password must be at least 8 characters long and contain at least one uppercase letter.');
+      return;
+    }
+
     if (password !== confirmPassword) {
-      alert('Passwords do not match.');
+      setErrorMessage('Passwords do not match.');
       return;
     }
-  
+
     try {
       const userCredential = await createUserWithEmailAndPassword(FIREBASE_AUTH, email, password);
       console.log('User registered:', userCredential.user);
-  
-      // Attempt to save user details to Firestore
+
+      // Store user data in Firestore (ensure not to store passwords in plain text)
       await setDoc(doc(FIREBASE_DB, 'users', userCredential.user.uid), {
         uid: userCredential.user.uid,
         email,
@@ -48,12 +80,12 @@ const Register = () => {
         idNumber,
         createdAt: new Date(),
       });
-      
+
       console.log('User added to Firestore');
       alert('Registration successful!');
     } catch (error) {
       console.error('Error registering user:', error);
-      //kuwang ug alert
+      setErrorMessage((error as any).message || 'An error occurred during registration.');
     }
   };
 

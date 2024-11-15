@@ -19,45 +19,52 @@ export default function Login() {
     };
 
     const handleSignIn = async () => {
-        setLoading(true);
-
-        try {
-            // Query Firestore for the user with the given ID number
-            const userQuery = query(
-                collection(FIREBASE_DB, "users"),
-                where("idNumber", "==", idNumber)
-            );
-            const querySnapshot = await getDocs(userQuery);
-
-            if (querySnapshot.empty) {
-                alert("User not found");
-                setLoading(false);
-                return;
-            }
-
-            // Assuming there's only one user with the ID number
-            const userDoc = querySnapshot.docs[0];
-            const userData = userDoc.data();
-
-            // Check if the password matches
-            if (userData.password !== password) {
-                alert("Incorrect password");
-                setLoading(false);
-                return;
-            }
-
-            // If the password is correct, authenticate with Firebase
-            await signInWithEmailAndPassword(auth, userData.email, password);
-
-            console.log("User signed in:", userData);
-            router.push("/home");
-        } catch (error) {
-            console.log(error);
-            alert("Error signing in: " + (error as Error).message);
-        } finally {
-            setLoading(false);
-        }
-    };
+            setLoading(true);
+        
+            try {
+                // Query Firestore for the user with the given ID number
+                const userQuery = query(
+                    collection(FIREBASE_DB, "users"),
+                    where("idNumber", "==", idNumber)
+                );
+                const querySnapshot = await getDocs(userQuery);
+        
+                if (querySnapshot.empty) {
+                    alert("User not found");
+                    setLoading(false);
+                    return;
+                }
+        
+                // Assuming there's only one user with the ID number
+                const userDoc = querySnapshot.docs[0];
+                const userData = userDoc.data();
+        
+                // Check if the password matches
+                if (userData.password !== password) {
+                    alert("Incorrect password");
+                    setLoading(false);
+                    return;
+                }
+        
+                // If the password is correct, authenticate with Firebase
+                await signInWithEmailAndPassword(auth, userData.email, password);
+        
+                // Redirect based on user type
+                if (userData.userType === 'teacher') {
+                    router.push("/facultypage/home");
+                } else if (userData.userType === 'student') {
+                    router.push("/userpage/home");
+                }
+        
+                console.log("User signed in:", userData);
+            } catch (error) {
+                console.log(error);
+                alert("Error signing in: " + (error as Error).message);
+            } finally {
+                setLoading(false);
+            }
+        };
+        
 
     return (
         <View style={styles.container}>
