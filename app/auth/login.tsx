@@ -19,51 +19,51 @@ export default function Login() {
     };
 
     const handleSignIn = async () => {
-            setLoading(true);
-        
-            try {
-                // Query Firestore for the user with the given ID number
-                const userQuery = query(
-                    collection(FIREBASE_DB, "users"),
-                    where("idNumber", "==", idNumber)
-                );
-                const querySnapshot = await getDocs(userQuery);
-        
-                if (querySnapshot.empty) {
-                    alert("User not found");
-                    setLoading(false);
-                    return;
-                }
-        
-                // Assuming there's only one user with the ID number
-                const userDoc = querySnapshot.docs[0];
-                const userData = userDoc.data();
-        
-                // Check if the password matches
-                if (userData.password !== password) {
-                    alert("Incorrect password");
-                    setLoading(false);
-                    return;
-                }
-        
-                // If the password is correct, authenticate with Firebase
-                await signInWithEmailAndPassword(auth, userData.email, password);
-        
-                // Redirect based on user type
-                if (userData.userType === 'teacher') {
-                    router.push("/facultypage/home");
-                } else if (userData.userType === 'student') {
-                    router.push("/userpage/home");
-                }
-        
-                console.log("User signed in:", userData);
-            } catch (error) {
-                console.log(error);
-                alert("Error signing in: " + (error as Error).message);
-            } finally {
-                setLoading(false);
-            }
-        };
+        setLoading(true);
+    
+        try {
+            // Sign in with Firebase Authentication
+            const userCredential = await signInWithEmailAndPassword(auth, idNumber + "@domain.com", password);
+    
+            const user = userCredential.user;
+    
+            // Query Firestore to get user role
+            const userQuery = query(
+                collection(FIREBASE_DB, "users"),
+                where("idNumber", "==", idNumber)
+            );
+            const querySnapshot = await getDocs(userQuery);
+    
+            if (querySnapshot.empty) {
+                alert("User role not found in Firestore");
+                setLoading(false);
+                return;
+            }
+    
+            const userData = querySnapshot.docs[0].data();
+    
+            // Redirect based on user type
+            if (userData.userType === "teacher") {
+                router.push("/facultypage/home");
+            } else if (userData.userType === "student") {
+                router.push("/userpage/home");
+            }
+    
+            console.log("User signed in:", user.email);
+        } catch (error) {
+            console.error(error);
+            if ((error as any).code === "auth/wrong-password") {
+                alert("Incorrect password");
+            } else if ((error as any).code === "auth/user-not-found") {
+                alert("User not found");
+            } else {
+                alert("Error signing in: " + (error as any).message);
+            }
+        } finally {
+            setLoading(false);
+        }
+    };
+    
         
 
     return (

@@ -24,7 +24,7 @@ export default function SplashScreen() {
 
     return (
         <ImageBackground
-            source={require("E:/4th yr/IT332/SmartTrack/NSTP/assets/images/Splash_logo.png")}
+            source={require("@/assets/images/Splash_logo.png")}
             style={styles.background}
             resizeMode="cover"
         >

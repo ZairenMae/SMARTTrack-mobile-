@@ -2,9 +2,10 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, ImageBackground, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
 import { FIREBASE_AUTH, FIREBASE_DB } from '@/FirebaseConfig';
-import { doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { doc, setDoc, deleteDoc, getDoc, getDocs, query, collection, where } from 'firebase/firestore';
+import { useRouter } from "expo-router";
 
 
 const Register = () => {
@@ -18,6 +19,8 @@ const Register = () => {
   const [lastName, setLastName] = useState('');
   const [idNumber, setIdNumber] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const router = useRouter();
+
 
   const toggleShowPassword = () => {
     setShowPassword(!showPassword);
@@ -37,6 +40,12 @@ const Register = () => {
     // Password must be at least 8 characters long, contain at least one uppercase letter
     const passwordRegex = /^(?=.*[A-Z]).{8,}$/;
     return passwordRegex.test(password);
+  };
+
+  const checkIfUserExists = async (idNumber: string, email: string) => {
+    const userRef = doc(FIREBASE_DB, 'users', idNumber);
+    const userDoc = await getDoc(userRef);
+    return userDoc.exists() || (await getDocs(query(collection(FIREBASE_DB, 'users'), where('email', '==', email)))).size > 0;
   };
 
   const handleRegister = async () => {
@@ -65,9 +74,24 @@ const Register = () => {
       return;
     }
 
+    if (!email.endsWith('@cit.edu')) {
+      setErrorMessage('Email must be a valid @cit.edu address.');
+      return;
+    }
+
+    const userExists = await checkIfUserExists(idNumber, email);
+    if (userExists) {
+      setErrorMessage('This ID number or email address is already registered.');
+      return;
+    }
+
     try {
       const userCredential = await createUserWithEmailAndPassword(FIREBASE_AUTH, email, password);
       console.log('User registered:', userCredential.user);
+
+      // Send email verification
+      await sendEmailVerification(userCredential.user);
+      console.log('Verification email sent.');
 
       // Store user data in Firestore (ensure not to store passwords in plain text)
       await setDoc(doc(FIREBASE_DB, 'users', userCredential.user.uid), {
@@ -83,6 +107,13 @@ const Register = () => {
 
       console.log('User added to Firestore');
       alert('Registration successful!');
+      
+      if (selectedUserType === "teacher") {
+        router.push("/facultypage/home");
+    } else {
+        router.push("/userpage/home");
+    }
+
     } catch (error) {
       console.error('Error registering user:', error);
       setErrorMessage((error as any).message || 'An error occurred during registration.');
