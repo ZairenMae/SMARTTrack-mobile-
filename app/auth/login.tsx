@@ -10,9 +10,10 @@ export default function Login() {
     const [idNumber, setIdNumber] = useState("");
     const [password, setPassword] = useState("");
     const [showPassword, setShowPassword] = useState(false);
-    const router = useRouter();
     const [loading, setLoading] = useState(false);
-    const [resetEmail, setResetEmail] = useState(""); // State for storing email for password reset
+    const [resetEmail, setResetEmail] = useState(""); // State for password reset email
+    const [isCardVisible, setIsCardVisible] = useState(false); // State to control card visibility
+    const router = useRouter();
     const auth = FIREBASE_AUTH;
 
     const toggleShowPassword = () => {
@@ -21,35 +22,34 @@ export default function Login() {
 
     const handleSignIn = async () => {
         setLoading(true);
-    
         try {
-            // Sign in with Firebase Authentication
-            const userCredential = await signInWithEmailAndPassword(auth, idNumber + "@domain.com", password);
-    
+            const userCredential = await signInWithEmailAndPassword(
+                auth,
+                idNumber + "@domain.com",
+                password
+            );
             const user = userCredential.user;
-    
-            // Query Firestore to get user role
+
             const userQuery = query(
                 collection(FIREBASE_DB, "users"),
                 where("idNumber", "==", idNumber)
             );
             const querySnapshot = await getDocs(userQuery);
-    
+
             if (querySnapshot.empty) {
                 alert("User role not found in Firestore");
                 setLoading(false);
                 return;
             }
-    
+
             const userData = querySnapshot.docs[0].data();
-    
-            // Redirect based on user type
+
             if (userData.userType === "teacher") {
                 router.push("/facultypage/home");
             } else if (userData.userType === "student") {
                 router.push("/userpage/home");
             }
-    
+
             console.log("User signed in:", user.email);
         } catch (error) {
             console.error(error);
@@ -72,11 +72,11 @@ export default function Login() {
         }
 
         setLoading(true);
-        
+
         try {
-            // Send password reset email
             await sendPasswordResetEmail(auth, resetEmail);
             Alert.alert("Success", "Password reset link sent! Please check your email.");
+            setIsCardVisible(false); // Close the card after success
         } catch (error) {
             console.error(error);
             Alert.alert("Error", "Failed to send password reset link. Please try again later.");
@@ -87,14 +87,9 @@ export default function Login() {
 
     return (
         <View style={styles.container}>
-            <Image
-                source={require("../../assets/images/logo.png")}
-                style={styles.logo}
-            />
+            <Image source={require("../../assets/images/logo.png")} style={styles.logo} />
             <Text style={styles.welcomeText}>Welcome</Text>
-            <Text style={styles.signInText}>
-                Sign in to access your account
-            </Text>
+            <Text style={styles.signInText}>Sign in to access your account</Text>
 
             <View style={styles.loginContainer}>
                 <Text style={styles.loginLabel}>LOGIN</Text>
@@ -130,27 +125,16 @@ export default function Login() {
                 </View>
 
                 <View style={styles.forgotPasswordContainer}>
-                    <TouchableOpacity
-                        onPress={() =>
-                            router.push("/auth/forgot-password" as any)
-                        }
-                    >
+                    <TouchableOpacity onPress={() => setIsCardVisible(true)}>
                         <Text style={styles.forgotPasswordText}>Forgot password?</Text>
                     </TouchableOpacity>
                 </View>
 
-                <TouchableOpacity
-                    style={styles.signInButton}
-                    onPress={handleSignIn}
-                >
+                <TouchableOpacity style={styles.signInButton} onPress={handleSignIn}>
                     <Text style={styles.signInButtonText}>SIGN IN</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity
-                    onPress={() =>
-                        router.push({ pathname: "/auth/register", params: {} })
-                    }
-                >
+                <TouchableOpacity onPress={() => router.push({ pathname: "/auth/register", params: {} })}>
                     <Text style={styles.registerText}>
                         Not a member?{" "}
                         <Text style={styles.registerLink}>Register now</Text>
@@ -158,24 +142,35 @@ export default function Login() {
                 </TouchableOpacity>
             </View>
 
-            {/* Forgot Password modal or screen */}
-            <View style={styles.forgotPasswordModal}>
-                <Text style={styles.modalTitle}>Reset Your Password</Text>
-                <TextInput
-                    style={styles.input}
-                    placeholder="Enter your ID number"
-                    value={resetEmail}
-                    onChangeText={setResetEmail}
-                />
-                <TouchableOpacity
-                    style={styles.forgotPasswordButton}
-                    onPress={handleForgotPassword}
-                >
-                    <Text style={styles.forgotPasswordButtonText}>
-                        Send Reset Link
-                    </Text>
-                </TouchableOpacity>
-            </View>
+            {/* Card for Forgot Password */}
+            {isCardVisible && (
+                <View style={styles.cardContainer}>
+                    <View style={styles.card}>
+                        <Text style={styles.cardTitle}>Reset Your Password</Text>
+                        <TextInput
+                            style={styles.input}
+                            placeholder="Enter your ID number"
+                            value={resetEmail}
+                            onChangeText={setResetEmail}
+                        />
+                        {loading ? (
+                            <ActivityIndicator size="large" color="#FFC107" />
+                        ) : (
+                            <>
+                                <TouchableOpacity style={styles.cardButton} onPress={handleForgotPassword}>
+                                    <Text style={styles.cardButtonText}>Send Reset Link</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={[styles.cardButton, { backgroundColor: "#800000" }]}
+                                    onPress={() => setIsCardVisible(false)}
+                                >
+                                    <Text style={styles.cardButtonText}>Cancel</Text>
+                                </TouchableOpacity>
+                            </>
+                        )}
+                    </View>
+                </View>
+            )}
         </View>
     );
 }
@@ -266,10 +261,22 @@ const styles = StyleSheet.create({
         color: "#1E90FF",
         textDecorationLine: "underline",
     },
-    forgotPasswordModal: {
-        marginTop: 20,
+    cardContainer: {
+        position: "absolute",
+        top: "30%",
+        left: "10%",
+        right: "10%",
+        backgroundColor: "rgba(0,0,0,0.5)", // Dim the background
+        justifyContent: "center",
+        alignItems: "center",
         padding: 20,
+        borderRadius: 10,
+        elevation: 10,
+    },
+    card: {
         backgroundColor: "#FFF",
+        width: "100%",
+        padding: 20,
         borderRadius: 10,
         shadowColor: "#000",
         shadowOpacity: 0.1,
@@ -277,20 +284,22 @@ const styles = StyleSheet.create({
         shadowRadius: 8,
         elevation: 5,
     },
-    modalTitle: {
+    cardTitle: {
         fontSize: 20,
         fontWeight: "bold",
         marginBottom: 10,
+        textAlign: "center",
     },
-    forgotPasswordButton: {
-        backgroundColor: "#1E90FF",
+    cardButton: {
+        backgroundColor: "#000000",
         paddingVertical: 15,
         borderRadius: 5,
+        marginBottom: 10,
         alignItems: "center",
-        marginTop: 20,
     },
-    forgotPasswordButtonText: {
+    cardButtonText: {
         color: "#FFF",
         fontWeight: "bold",
+        fontSize: 16,
     },
 });
