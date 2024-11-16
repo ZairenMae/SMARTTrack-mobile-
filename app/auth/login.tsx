@@ -1,9 +1,9 @@
 import React, { useState } from "react";
-import {View, Text, TextInput, TouchableOpacity, Image, StyleSheet, ActivityIndicator,} from "react-native";
+import { View, Text, TextInput, TouchableOpacity, Image, StyleSheet, ActivityIndicator, Alert } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { FIREBASE_AUTH, FIREBASE_DB } from "@/FirebaseConfig";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import { signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { getDocs, query, where, collection } from "firebase/firestore";
 
 export default function Login() {
@@ -12,6 +12,7 @@ export default function Login() {
     const [showPassword, setShowPassword] = useState(false);
     const router = useRouter();
     const [loading, setLoading] = useState(false);
+    const [resetEmail, setResetEmail] = useState(""); // State for storing email for password reset
     const auth = FIREBASE_AUTH;
 
     const toggleShowPassword = () => {
@@ -63,8 +64,26 @@ export default function Login() {
             setLoading(false);
         }
     };
-    
+
+    const handleForgotPassword = async () => {
+        if (!resetEmail) {
+            Alert.alert("Error", "Please enter your email address.");
+            return;
+        }
+
+        setLoading(true);
         
+        try {
+            // Send password reset email
+            await sendPasswordResetEmail(auth, resetEmail);
+            Alert.alert("Success", "Password reset link sent! Please check your email.");
+        } catch (error) {
+            console.error(error);
+            Alert.alert("Error", "Failed to send password reset link. Please try again later.");
+        } finally {
+            setLoading(false);
+        }
+    };
 
     return (
         <View style={styles.container}>
@@ -135,6 +154,25 @@ export default function Login() {
                     <Text style={styles.registerText}>
                         Not a member?{" "}
                         <Text style={styles.registerLink}>Register now</Text>
+                    </Text>
+                </TouchableOpacity>
+            </View>
+
+            {/* Forgot Password modal or screen */}
+            <View style={styles.forgotPasswordModal}>
+                <Text style={styles.modalTitle}>Reset Your Password</Text>
+                <TextInput
+                    style={styles.input}
+                    placeholder="Enter your ID number"
+                    value={resetEmail}
+                    onChangeText={setResetEmail}
+                />
+                <TouchableOpacity
+                    style={styles.forgotPasswordButton}
+                    onPress={handleForgotPassword}
+                >
+                    <Text style={styles.forgotPasswordButtonText}>
+                        Send Reset Link
                     </Text>
                 </TouchableOpacity>
             </View>
@@ -227,5 +265,32 @@ const styles = StyleSheet.create({
     registerLink: {
         color: "#1E90FF",
         textDecorationLine: "underline",
+    },
+    forgotPasswordModal: {
+        marginTop: 20,
+        padding: 20,
+        backgroundColor: "#FFF",
+        borderRadius: 10,
+        shadowColor: "#000",
+        shadowOpacity: 0.1,
+        shadowOffset: { width: 0, height: 2 },
+        shadowRadius: 8,
+        elevation: 5,
+    },
+    modalTitle: {
+        fontSize: 20,
+        fontWeight: "bold",
+        marginBottom: 10,
+    },
+    forgotPasswordButton: {
+        backgroundColor: "#1E90FF",
+        paddingVertical: 15,
+        borderRadius: 5,
+        alignItems: "center",
+        marginTop: 20,
+    },
+    forgotPasswordButtonText: {
+        color: "#FFF",
+        fontWeight: "bold",
     },
 });
