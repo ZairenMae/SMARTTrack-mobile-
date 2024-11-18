@@ -1,10 +1,9 @@
 import React from "react";
-import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions } from "react-native";
 import Svg, { Polygon } from "react-native-svg";
 import { Ionicons } from "@expo/vector-icons";
 
 const SideBar = ({ navigation }: any) => {
-  // Move userData to the top
   const userData = {
     name: "Zairen Mae A. Niñofranco",
     studentId: "00-0000-000",
@@ -18,14 +17,13 @@ const SideBar = ({ navigation }: any) => {
 
   return (
     <View style={styles.sidebarContainer}>
-      {/* Upper Section with SVG */}
-      <Svg height="50%" width="100%" style={styles.upper}>
-        <Polygon points="0,0 240,0 240,100 0,200" fill="#FFF" />
+      {/* SVG Design */}
+      <Svg height="150" width="100%" style={styles.upper}>
+        <Polygon points="240,0 0,0 0,150 240,100" fill="#FFF" />
       </Svg>
 
-      {/* Lower Section */}
-      <View style={styles.lower}>
-        {/* Move User Profile above Menu Items */}
+      {/* Scrollable Content */}
+      <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.profileContainer}>
           <Ionicons name="person-circle-outline" size={50} color="#FFC107" />
           <Text style={styles.profileName}>{userData.name}</Text>
@@ -33,7 +31,6 @@ const SideBar = ({ navigation }: any) => {
           <Text style={styles.profileEmail}>{userData.email}</Text>
         </View>
 
-        {/* Menu Items */}
         <View style={styles.menuContainer}>
           {menuItems.map((item, index) => (
             <TouchableOpacity
@@ -46,17 +43,17 @@ const SideBar = ({ navigation }: any) => {
             </TouchableOpacity>
           ))}
         </View>
+      </ScrollView>
 
-        {/* Logout Button */}
-        <TouchableOpacity
-          style={styles.logoutButton}
-          onPress={() => {
-            console.log("Logging out...");
-          }}
-        >
-          <Text style={styles.logoutText}>Logout</Text>
-        </TouchableOpacity>
-      </View>
+      {/* Logout Button */}
+      <TouchableOpacity
+        style={styles.logoutButton}
+        onPress={() => {
+          console.log("Logging out...");
+        }}
+      >
+        <Text style={styles.logoutText}>Logout</Text>
+      </TouchableOpacity>
     </View>
   );
 };
@@ -67,17 +64,19 @@ const styles = StyleSheet.create({
     top: 63,
     left: 0,
     width: 240,
-    height: "100%",
+    height: Dimensions.get("window").height - 63,
     backgroundColor: "#8A252C",
     zIndex: 1,
   },
   upper: {
+    position: "absolute",
+    top: 0,
     left: 0,
   },
-  lower: {
-    flex: 1,
-    padding: 20,
-    justifyContent: "flex-start", // Ensures proper alignment of content
+  scrollContent: {
+    paddingTop: 150, // Leave space below SVG
+    paddingHorizontal: 20,
+    paddingBottom: 80, // Leave space for logout button
   },
   profileContainer: {
     alignItems: "center",
@@ -114,7 +113,7 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
   logoutButton: {
-    position: "absolute", 
+    position: "absolute",
     bottom: 20,
     left: 20,
     right: 20,

@@ -21,50 +21,83 @@ export default function Login() {
     };
 
     const handleSignIn = async () => {
+        if (!idNumber || !password) {
+            alert("Please fill out both the ID Number/Email and password fields.");
+            return;
+        }
+    
         setLoading(true);
+    
         try {
-            const userCredential = await signInWithEmailAndPassword(
-                auth,
-                idNumber + "@domain.com",
-                password
-            );
-            const user = userCredential.user;
-
+            let email;
+    
+            // Check if input is an email
+            if (idNumber.includes("@")) {
+                email = idNumber;
+            } else {
+                // Sanitize and validate ID number
+                const sanitizedIdNumber = idNumber.trim();
+    
+                // Validate the format (e.g., 00-0000-000)
+                const regex = /^(\d{2})-(\d{4})-(\d{3})$/;
+                if (!regex.test(sanitizedIdNumber)) {
+                    alert("Invalid ID number format. Use 00-0000-000.");
+                    setLoading(false);
+                    return;
+                }
+    
+                // Query Firestore for the ID number
+                const userQuery = query(
+                    collection(FIREBASE_DB, "users"),
+                    where("idNumber", "==", sanitizedIdNumber)
+                );
+    
+                const querySnapshot = await getDocs(userQuery);
+    
+                if (querySnapshot.empty) {
+                    alert("No user found with this ID Number.");
+                    setLoading(false);
+                    return;
+                }
+    
+                // Use the email from Firestore
+                email = querySnapshot.docs[0].data().email;
+            }
+    
+            console.log("Attempting to sign in with email:", email);
+    
+            // Sign in with Firebase
+            const userCredential = await signInWithEmailAndPassword(auth, email, password);
+            console.log("User signed in:", userCredential.user.email);
+    
+            // Navigate based on role
             const userQuery = query(
                 collection(FIREBASE_DB, "users"),
-                where("idNumber", "==", idNumber)
+                where("email", "==", email)
             );
-            const querySnapshot = await getDocs(userQuery);
-
-            if (querySnapshot.empty) {
-                alert("User role not found in Firestore");
-                setLoading(false);
-                return;
-            }
-
-            const userData = querySnapshot.docs[0].data();
-
-            if (userData.userType === "teacher") {
-                router.push("/facultypage/home");
-            } else if (userData.userType === "student") {
-                router.push("/userpage/home");
-            }
-
-            console.log("User signed in:", user.email);
-        } catch (error) {
-            console.error(error);
-            if ((error as any).code === "auth/wrong-password") {
-                alert("Incorrect password");
-            } else if ((error as any).code === "auth/user-not-found") {
-                alert("User not found");
+            const userSnapshot = await getDocs(userQuery);
+    
+            if (!userSnapshot.empty) {
+                const userData = userSnapshot.docs[0].data();
+                if (userData.userType === "teacher") {
+                    router.push("/facultypage/home");
+                } else if (userData.userType === "student") {
+                    router.push("/userpage/home");
+                } else {
+                    alert("Unknown user type.");
+                }
             } else {
-                alert("Error signing in: " + (error as any).message);
+                alert("User data not found.");
             }
+    
+        } catch (error) {
+            console.error("Error:", error);
+            alert("An error occurred during sign-in.");
         } finally {
             setLoading(false);
         }
     };
-
+    
     const handleForgotPassword = async () => {
         if (!resetEmail) {
             Alert.alert("Error", "Please enter your email address.");
