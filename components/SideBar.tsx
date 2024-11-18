@@ -1,14 +1,26 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions } from "react-native";
 import Svg, { Polygon } from "react-native-svg";
 import { Ionicons } from "@expo/vector-icons";
-
+import AsyncStorage from "@react-native-async-storage/async-storage";
+ 
 const SideBar = ({ navigation }: any) => {
-  const userData = {
-    name: "Zairen Mae A. Niñofranco",
-    studentId: "00-0000-000",
-    email: "zairenmae.niñofranco@cit.edu",
-  };
+  const [userData, setUserData] = useState({
+    name: "",
+    studentId: "",
+    email: "",
+  });
+ 
+  useEffect(() => {
+    const loadUserData = async () => {
+      const storedData = await AsyncStorage.getItem('userData');
+      if (storedData) {
+        setUserData(JSON.parse(storedData));
+      }
+    };
+   
+    loadUserData(); // Load the user data when the component mounts
+  }, []);
 
   const menuItems: { title: string; icon: keyof typeof Ionicons.glyphMap; onPress: () => void }[] = [
     { title: "Notification", icon: "notifications-outline", onPress: () => {} },
