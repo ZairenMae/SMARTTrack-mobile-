@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, Image, StyleSheet, ActivityIndicator, Alert } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, Image, StyleSheet, ActivityIndicator, Modal } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { FIREBASE_AUTH, FIREBASE_DB } from "@/FirebaseConfig";
@@ -13,6 +13,8 @@ export default function Login() {
     const [loading, setLoading] = useState(false);
     const [resetEmail, setResetEmail] = useState(""); // State for password reset email
     const [isCardVisible, setIsCardVisible] = useState(false); // State to control card visibility
+    const [modalVisible, setModalVisible] = useState(false); // Modal visibility
+    const [modalMessage, setModalMessage] = useState(""); // Modal message content
     const router = useRouter();
     const auth = FIREBASE_AUTH;
 
@@ -20,9 +22,15 @@ export default function Login() {
         setShowPassword(!showPassword);
     };
 
+    // Function to display modal with a message
+    const showModal = (message: string) => {
+        setModalMessage(message);
+        setModalVisible(true);
+    };
+
     const handleSignIn = async () => {
         if (!idNumber || !password) {
-            alert("Please fill out both the ID Number/Email and password fields.");
+            showModal("Please fill out both the ID Number/Email and password fields.");
             return;
         }
     
@@ -41,7 +49,7 @@ export default function Login() {
                 // Validate the format (e.g., 00-0000-000)
                 const regex = /^(\d{2})-(\d{4})-(\d{3})$/;
                 if (!regex.test(sanitizedIdNumber)) {
-                    alert("Invalid ID number format. Use 00-0000-000.");
+                    showModal("Invalid ID number format. Use 00-0000-000.");
                     setLoading(false);
                     return;
                 }
@@ -55,7 +63,7 @@ export default function Login() {
                 const querySnapshot = await getDocs(userQuery);
     
                 if (querySnapshot.empty) {
-                    alert("No user found with this ID Number.");
+                    showModal("No user found with this ID Number.");
                     setLoading(false);
                     return;
                 }
@@ -84,23 +92,23 @@ export default function Login() {
                 } else if (userData.userType === "student") {
                     router.push("/userpage/home");
                 } else {
-                    alert("Unknown user type.");
+                    showModal("Unknown user type.");
                 }
             } else {
-                alert("User data not found.");
+                showModal("User data not found.");
             }
     
         } catch (error) {
             console.error("Error:", error);
-            alert("An error occurred during sign-in.");
+            showModal("An error occurred during sign-in.");
         } finally {
             setLoading(false);
         }
     };
-    
+
     const handleForgotPassword = async () => {
         if (!resetEmail) {
-            Alert.alert("Error", "Please enter your email address.");
+            showModal("Please enter your email address.");
             return;
         }
 
@@ -108,11 +116,11 @@ export default function Login() {
 
         try {
             await sendPasswordResetEmail(auth, resetEmail);
-            Alert.alert("Success", "Password reset link sent! Please check your email.");
+            showModal("Password reset link sent! Please check your email.");
             setIsCardVisible(false); // Close the card after success
         } catch (error) {
             console.error(error);
-            Alert.alert("Error", "Failed to send password reset link. Please try again later.");
+            showModal("Failed to send password reset link. Please try again later.");
         } finally {
             setLoading(false);
         }
@@ -204,6 +212,23 @@ export default function Login() {
                     </View>
                 </View>
             )}
+
+            {/* Modal for alerts */}
+            <Modal
+                visible={modalVisible}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={() => setModalVisible(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <Text style={styles.modalText}>{modalMessage}</Text>
+                        <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.modalButton}>
+                            <Text style={styles.modalButtonText}>OK</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
         </View>
     );
 }
@@ -334,5 +359,35 @@ const styles = StyleSheet.create({
         color: "#FFF",
         fontWeight: "bold",
         fontSize: 16,
+    },
+    modalOverlay: {
+        flex: 1,
+        justifyContent: "center",
+        alignItems: "center",
+        backgroundColor: "rgba(0, 0, 0, 0.5)",
+    },
+    modalContent: {
+        backgroundColor: "#FFF",
+        padding: 20,
+        borderRadius: 10,
+        width: "80%",
+        alignItems: "center",
+    },
+    modalText: {
+        fontSize: 18,
+        fontWeight: "bold",
+        marginBottom: 20,
+    },
+    modalButton: {
+        backgroundColor: "#800000",
+        paddingVertical: 12,
+        paddingHorizontal: 40,
+        borderRadius: 5,
+        alignItems: "center",
+    },
+    modalButtonText: {
+        color: "#FFF",
+        fontSize: 16,
+        fontWeight: "bold",
     },
 });
