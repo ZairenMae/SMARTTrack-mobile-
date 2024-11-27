@@ -6,14 +6,13 @@ import {
     TouchableWithoutFeedback,
     ImageBackground,
 } from "react-native";
-import { Tabs, useRouter } from "expo-router"; // Use `useRouter` for navigation
+import { Tabs } from "expo-router";
 import { MyTabBar } from "@/components/TabBar";
 import { Feather } from "@expo/vector-icons";
 import SideBar from "@/components/SideBar";
 
-const TabLayout = () => {
+const TabLayout = ({ navigation }: any) => {
     const [isSidebarVisible, setSidebarVisible] = useState(false);
-    const router = useRouter(); // Use router for navigation
 
     const toggleSidebar = () => {
         setSidebarVisible((prev) => !prev);
@@ -36,8 +35,7 @@ const TabLayout = () => {
 
             {/* SideBar rendering */}
             <View style={styles.sidebarContainer}>
-                {isSidebarVisible && <SideBar navigation={router} />}{" "}
-                {/* Pass router */}
+                {isSidebarVisible && <SideBar navigation={navigation} />}
             </View>
 
             {/* Main content with Tabs */}
@@ -71,7 +69,10 @@ const TabLayout = () => {
                         headerTintColor: "#F5C722",
                     }}
                 >
-                    <Tabs.Screen name="home" options={{ title: "Home" }} />
+                    <Tabs.Screen
+                        name="home"
+                        options={{ title: "WELCOME, ADMIN!" }}
+                    />
                     <Tabs.Screen name="room" options={{ title: "Room" }} />
                     <Tabs.Screen name="report" options={{ title: "Report" }} />
                     <Tabs.Screen
