@@ -1,6 +1,12 @@
-// ModalComponent.tsx
 import React from "react";
-import { View, Text, TouchableOpacity, Modal, StyleSheet } from "react-native";
+import {
+    View,
+    Text,
+    TouchableOpacity,
+    Modal,
+    StyleSheet,
+    ScrollView,
+} from "react-native";
 
 type ButtonProps = {
     text: string;
@@ -11,7 +17,7 @@ type ButtonProps = {
 type ModalComponentProps = {
     visible: boolean;
     title: string;
-    message: string;
+    message: string | React.ReactNode; // Allow both strings and JSX
     buttons: ButtonProps[];
     onClose: () => void;
     onPress: () => void;
@@ -35,7 +41,14 @@ const ModalComponent = ({
             <View style={styles.modalOverlay}>
                 <View style={styles.modalContent}>
                     <Text style={styles.modalTitle}>{title}</Text>
-                    <Text style={styles.modalMessage}>{message}</Text>
+                    {/* Check if the message is a string or JSX */}
+                    {typeof message === "string" ? (
+                        <Text style={styles.modalMessage}>{message}</Text>
+                    ) : (
+                        <ScrollView style={styles.modalMessageContainer}>
+                            {message}
+                        </ScrollView>
+                    )}
                     <View style={styles.buttonContainer}>
                         {buttons.map((button, index) => (
                             <TouchableOpacity
@@ -63,17 +76,24 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: "center",
         alignItems: "center",
+        backgroundColor: "rgba(0, 0, 0, 0.5)", // Add semi-transparent background
     },
     modalContent: {
         width: "80%",
         padding: 20,
         backgroundColor: "#fff",
         alignItems: "center",
+        borderRadius: 10,
+        elevation: 5,
     },
     modalTitle: {
         fontSize: 20,
         fontWeight: "bold",
         marginBottom: 10,
+    },
+    modalMessageContainer: {
+        maxHeight: 200, // Set max height for scrollable content
+        width: "100%",
     },
     modalMessage: {
         fontSize: 16,
@@ -90,6 +110,7 @@ const styles = StyleSheet.create({
         marginHorizontal: 5,
         paddingVertical: 10,
         alignItems: "center",
+        borderRadius: 5,
     },
     buttonText: {
         color: "#fff",

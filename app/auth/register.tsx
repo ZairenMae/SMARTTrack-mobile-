@@ -6,6 +6,7 @@ import { createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/
 import { FIREBASE_AUTH, FIREBASE_DB } from '@/FirebaseConfig';
 import { doc, setDoc, deleteDoc, getDoc, getDocs, query, collection, where } from 'firebase/firestore';
 import { useRouter } from "expo-router";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 
 const Register = () => {
@@ -104,6 +105,14 @@ const Register = () => {
         idNumber,
         createdAt: new Date(),
       });
+
+       // Store user data in AsyncStorage
+    await AsyncStorage.setItem('userData', JSON.stringify({
+      name: `${firstName} ${middleName} ${lastName}`,
+      studentId: idNumber,
+      email: email,
+    }));
+    console.log('User data stored in AsyncStorage');
 
       console.log('User added to Firestore');
       alert('Registration successful!');

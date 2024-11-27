@@ -1,140 +1,124 @@
 import React, { useState } from "react";
-import {
-    View,
-    Text,
-    Image,
-    TouchableOpacity,
-    StyleSheet,
-    BackHandler,
-} from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from "react-native";
 import Modal from "../modal/Modal";
 
+interface User {
+  userName: string;
+  section: string;
+  checkInTime: string;
+  thresholdTime: string;
+  date: string;
+  status: string;
+}
+
 interface CardReportProps {
-    className?: string;
-    bannerSrc?: string;
-    title?: string;
-    progressHeader?: string;
-    progressValue?: number;
-    link: string;
+  title: string;
+  userName: string;
+  section: string;
+  checkInTime: string;
+  thresholdTime: string;
+  date: string;
+  status: string;
+  leaderboard: User[]; // List of all users for the leaderboard
 }
 
 const CardReport: React.FC<CardReportProps> = ({
-    bannerSrc = "https://example.com/assets/images/banner/banner-adventure_large.webp",
-    title = "Zairen",
-    progressHeader = "Title",
-    progressValue = 1,
-    link = "Home", // example link to a screen
+  title,
+  userName,
+  section,
+  checkInTime,
+  thresholdTime,
+  date,
+  status,
+  leaderboard,
 }) => {
-    const navigation = useNavigation();
-    const [modalVisible, setModalVisible] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
 
-    const handlePress = () => {
-        console.log("Pressed!");
-        setModalVisible(true);
-    };
+  const handlePress = () => {
+    setModalVisible(true);
+  };
 
-    const buttons = [
-        {
-            text: "Test",
-            action: () => {
-                console.log("Deleted!");
-                setModalVisible(false);
-            },
-            color: "red",
-        },
-        {
-            text: "Cancel",
-            action: () => setModalVisible(false),
-            color: "gray",
-        },
-    ];
+  const buttons = [
+    {
+      text: "Close",
+      action: () => setModalVisible(false),
+      color: "gray",
+    },
+  ];
 
-    return (
-        <View style={styles.container}>
-            <TouchableOpacity style={styles.card} onPress={handlePress}>
-                <View style={styles.titleContainer}>
-                    <Text style={styles.cardTitle}>{title}</Text>
-                </View>
-                <View style={styles.bannerContainer}>
-                    <Image
-                        source={{ uri: bannerSrc }}
-                        style={styles.bannerImage}
-                        resizeMode="cover"
-                    />
-                </View>
-                <View style={styles.infoContainer}>
-                    <Text style={styles.progressHeader}>{progressHeader}</Text>
-                    <Text style={styles.progressValue}>{progressValue}</Text>
-                </View>
-            </TouchableOpacity>
-            <Modal
-                visible={modalVisible}
-                onClose={() => setModalVisible(false)}
-                onPress={handlePress}
-                title={"test"}
-                message={"test"}
-                buttons={buttons}
-            />
-        </View>
-    );
+  return (
+    <View style={styles.card}>
+      <TouchableOpacity onPress={handlePress}>
+        <Text style={styles.title}>{title}</Text>
+        <Text style={styles.userName}>Name: {userName}</Text>
+        <Text style={styles.details}>Check-In Time: {checkInTime}</Text>
+        <Text style={styles.details}>Status: {status}</Text>
+      </TouchableOpacity>
+      <Modal
+              visible={modalVisible}
+              onClose={() => setModalVisible(false)}
+              title="Leaderboard"
+              message={<ScrollView>
+                  {leaderboard.map((user, index) => (
+                      <View key={index} style={styles.leaderboardItem}>
+                          <Text style={styles.leaderboardText}>
+                              {index + 1}. {user.userName} - {user.checkInTime}
+                          </Text>
+                          <Text style={styles.leaderboardDetails}>Section: {user.section}</Text>
+                          <Text style={styles.leaderboardDetails}>Status: {user.status}</Text>
+                      </View>
+                  ))}
+              </ScrollView>}
+              buttons={buttons} onPress={function (): void {
+                  throw new Error("Function not implemented.");
+              } }      />
+    </View>
+  );
 };
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        alignItems: "center",
-        justifyContent: "center",
-    },
-    titleContainer: {
-        width: "100%",
-        alignItems: "center",
-        paddingTop: 20,
-    },
-    cardTitle: {
-        alignItems: "center",
-        fontSize: 18,
-        fontWeight: "bold",
-        marginBottom: 5,
-    },
-    card: {
-        height: 270,
-        width: 220,
-        borderWidth: 1,
-        borderColor: "#666666",
-        borderRadius: 25,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.3,
-        shadowRadius: 5,
-        elevation: 5,
-        overflow: "hidden",
-        transform: [{ scale: 1 }],
-    },
-    bannerContainer: {
-        height: "40%",
-        width: "100%",
-        position: "relative",
-    },
-    bannerImage: {
-        height: "100%",
-        width: "100%",
-    },
-    infoContainer: {
-        padding: 10,
-        alignItems: "center",
-        backgroundColor: "rgb(138, 37, 44)",
-    },
-    progressHeader: {
-        fontSize: 16,
-        fontWeight: "bold",
-        color: "white",
-    },
-    progressValue: {
-        fontSize: 24,
-        fontWeight: "bold",
-        color: "rgb(245, 199, 34)",
-    },
+  card: {
+    height: 150,
+    width: 300,
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 15,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
+    elevation: 3,
+    backgroundColor: "#fff",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 10,
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: "bold",
+    marginBottom: 10,
+    textAlign: "center",
+  },
+  userName: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#333",
+  },
+  details: {
+    fontSize: 14,
+    color: "#666",
+  },
+  leaderboardItem: {
+    marginBottom: 10,
+  },
+  leaderboardText: {
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  leaderboardDetails: {
+    fontSize: 14,
+    color: "#666",
+  },
 });
 
 export default CardReport;
