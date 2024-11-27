@@ -103,10 +103,10 @@ const styles = StyleSheet.create({
     header: {
         justifyContent: "center",
         alignItems: "center",
-        backgroundColor: "#D9D9D9",
         height: "30%",
         width: "100%",
         fontFamily: "sans-serif",
+        padding: 10,
     },
     room: {
         width: "100%",
@@ -114,6 +114,7 @@ const styles = StyleSheet.create({
     roomCard: {
         marginBottom: 10,
         width: "90%",
+        gap: 10,
     },
     roomCode: {
         marginTop: 5,
