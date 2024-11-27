@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, ImageBackground, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, TextInput, ImageBackground, StyleSheet, TouchableOpacity, ScrollView, Modal } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
@@ -20,6 +20,8 @@ const Register = () => {
   const [lastName, setLastName] = useState('');
   const [idNumber, setIdNumber] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [modalVisible, setModalVisible] = useState(false);
+  const [modalMessage, setModalMessage] = useState('');
   const router = useRouter();
 
 
@@ -38,7 +40,6 @@ const Register = () => {
   };
 
   const validatePassword = (password: string) => {
-    // Password must be at least 8 characters long, contain at least one uppercase letter
     const passwordRegex = /^(?=.*[A-Z]).{8,}$/;
     return passwordRegex.test(password);
   };
@@ -51,38 +52,45 @@ const Register = () => {
 
   const handleRegister = async () => {
     if (!email || !password || !confirmPassword || !selectedUserType || !firstName || !lastName || !idNumber) {
-      setErrorMessage('Please fill in all fields.');
+      setModalMessage('Please fill in all fields.');
+      setModalVisible(true);
       return;
     }
 
     if (!validateEmail(email)) {
-      setErrorMessage('Please enter a valid email.');
+      setModalMessage('Please enter a valid email.');
+      setModalVisible(true);
       return;
     }
 
     if (!validateIdNumber(idNumber)) {
-      setErrorMessage('Please enter a valid ID number (e.g., 12-3456-789).');
+      setModalMessage('Please enter a valid ID number (e.g., 12-3456-789).');
+      setModalVisible(true);
       return;
     }
 
     if (!validatePassword(password)) {
-      setErrorMessage('Password must be at least 8 characters long and contain at least one uppercase letter.');
+      setModalMessage('Password must be at least 8 characters long and contain at least one uppercase letter.');
+      setModalVisible(true);
       return;
     }
 
     if (password !== confirmPassword) {
-      setErrorMessage('Passwords do not match.');
+      setModalMessage('Passwords do not match.');
+      setModalVisible(true);
       return;
     }
 
     if (!email.endsWith('@cit.edu')) {
-      setErrorMessage('Email must be a valid @cit.edu address.');
+      setModalMessage('Email must be a valid @cit.edu address.');
+      setModalVisible(true);
       return;
     }
 
     const userExists = await checkIfUserExists(idNumber, email);
     if (userExists) {
-      setErrorMessage('This ID number or email address is already registered.');
+      setModalMessage('This ID number or email address is already registered.');
+      setModalVisible(true);
       return;
     }
 
@@ -106,26 +114,28 @@ const Register = () => {
         createdAt: new Date(),
       });
 
-       // Store user data in AsyncStorage
-    await AsyncStorage.setItem('userData', JSON.stringify({
-      name: `${firstName} ${middleName} ${lastName}`,
-      studentId: idNumber,
-      email: email,
-    }));
-    console.log('User data stored in AsyncStorage');
+      // Store user data in AsyncStorage
+      await AsyncStorage.setItem('userData', JSON.stringify({
+        name: `${firstName} ${middleName} ${lastName}`,
+        studentId: idNumber,
+        email: email,
+      }));
+      console.log('User data stored in AsyncStorage');
 
       console.log('User added to Firestore');
-      alert('Registration successful!');
+      setModalMessage('Registration successful!');
+      setModalVisible(true);
       
       if (selectedUserType === "teacher") {
         router.push("/facultypage/home");
-    } else {
+      } else {
         router.push("/userpage/home");
-    }
+      }
 
     } catch (error) {
       console.error('Error registering user:', error);
-      setErrorMessage((error as any).message || 'An error occurred during registration.');
+      setModalMessage((error as any).message || 'An error occurred during registration.');
+      setModalVisible(true);
     }
   };
 
@@ -137,7 +147,6 @@ const Register = () => {
       console.error('Error deleting user from Firestore:', error);
     }
   };
-  
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -244,6 +253,24 @@ const Register = () => {
           </TouchableOpacity>
         </View>
       </ImageBackground>
+
+      {/* Modal for displaying messages */}
+      <Modal
+        transparent={true}
+        visible={modalVisible}
+        animationType="fade"
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalText}>{modalMessage}</Text>
+            <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.modalButton}>
+              <Text style={styles.modalButtonText}>OK</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
     </ScrollView>
   );
 };
@@ -323,6 +350,36 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    padding: 20,
+    borderRadius: 10,
+    width: '80%',
+    alignItems: 'center',
+  },
+  modalText: {
+    fontSize: 18,
+    marginBottom: 15,
+    textAlign: 'center',
+  },
+  modalButton: {
+    backgroundColor: '#f1c40f',
+    paddingVertical: 10,
+    paddingHorizontal: 30,
+    borderRadius: 8,
+  },
+  modalButtonText: {
+    color: '#fff',
+    fontSize: 16,
   },
 });
 

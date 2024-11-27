@@ -1,20 +1,28 @@
-import React from "react";
-import { View, Text, Image, StyleSheet } from "react-native";
+import React, { useState } from "react";
+import { View, Text, Image, StyleSheet, TouchableOpacity } from "react-native";
 
 type CardRoomProps = {
     name?: string;
     section?: string;
-    time?: string;
+    startTime?: string;
+    endTime?: string;
+    roomCode?: string;
 };
 
-const CardRoom = ({ name, section, time }: CardRoomProps) => {
+const CardRoom = ({ name, section, startTime, endTime, roomCode }: CardRoomProps) => {
+    const [showCode, setShowCode] = useState(false);
+
+    const toggleCodeVisibility = () => {
+        setShowCode((prev) => !prev);
+    };
+
     return (
-        <View style={styles.cardContainer}>
+        <TouchableOpacity onPress={toggleCodeVisibility} style={styles.cardContainer}>
             <View style={styles.card}>
                 <View style={styles.bannerContainer}>
                     <View style={styles.banner}>
                         <Image
-                            //source={{ uri: imageUri }}
+                            // source={{ uri: imageUri }} // Uncomment and use a valid image URI here
                             style={styles.bannerImage}
                             resizeMode="cover"
                         />
@@ -22,11 +30,15 @@ const CardRoom = ({ name, section, time }: CardRoomProps) => {
                     <View style={styles.details}>
                         <Text style={styles.title}>{name}</Text>
                         <Text style={styles.subtitle}>{section}</Text>
-                        <Text style={styles.subtitle}>{time}</Text>
+                        <Text style={styles.subtitle}>{`Start: ${startTime}`}</Text>
+                        <Text style={styles.subtitle}>{`End: ${endTime}`}</Text>
+                        {showCode && (
+                            <Text style={styles.roomCode}>{`Code: ${roomCode}`}</Text>
+                        )}
                     </View>
                 </View>
             </View>
-        </View>
+        </TouchableOpacity>
     );
 };
 
@@ -83,6 +95,12 @@ const styles = StyleSheet.create({
     subtitle: {
         fontSize: 16,
         color: "#aaa",
+    },
+    roomCode: {
+        marginTop: 5,
+        fontWeight: "bold",
+        fontSize: 16,
+        color: "#333",
     },
 });
 
