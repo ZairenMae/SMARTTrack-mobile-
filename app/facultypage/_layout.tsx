@@ -4,6 +4,7 @@ import {
     StyleSheet,
     TouchableOpacity,
     TouchableWithoutFeedback,
+    ImageBackground,
 } from "react-native";
 import { Tabs } from "expo-router";
 import { MyTabBar } from "@/components/TabBar";
@@ -55,7 +56,12 @@ const TabLayout = ({ navigation }: any) => {
                             </TouchableOpacity>
                         ),
                         headerTitleAlign: "center",
-                        headerRight: () => <View style={styles.circleButton} />,
+                        headerRight: () => (
+                            <ImageBackground
+                                source={require("@/assets/images/logo.png")}
+                                style={styles.circleButton}
+                            />
+                        ),
                         headerStyle: {
                             backgroundColor: "#8A252C", // Set the header background color
                             zIndex: 2000, // Ensure header stays on top
