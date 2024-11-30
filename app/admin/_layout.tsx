@@ -1,11 +1,5 @@
 import React, { useState } from "react";
-import {
-    View,
-    StyleSheet,
-    TouchableOpacity,
-    TouchableWithoutFeedback,
-    ImageBackground,
-} from "react-native";
+import { View, StyleSheet, Pressable, ImageBackground } from "react-native";
 import { Tabs } from "expo-router";
 import { MyTabBar } from "@/components/TabBar";
 import { Feather } from "@expo/vector-icons";
@@ -28,9 +22,10 @@ const TabLayout = ({ navigation }: any) => {
         <View style={styles.container}>
             {/* Overlay to detect outside clicks and close the sidebar */}
             {isSidebarVisible && (
-                <TouchableWithoutFeedback onPress={handleOutsidePress}>
-                    <View style={styles.overlay} />
-                </TouchableWithoutFeedback>
+                <Pressable
+                    onPress={handleOutsidePress}
+                    style={styles.overlay}
+                />
             )}
 
             {/* SideBar rendering */}
@@ -44,7 +39,7 @@ const TabLayout = ({ navigation }: any) => {
                     tabBar={(props) => <MyTabBar {...props} />}
                     screenOptions={{
                         headerLeft: () => (
-                            <TouchableOpacity
+                            <Pressable
                                 onPress={toggleSidebar}
                                 style={styles.menuButton}
                             >
@@ -53,7 +48,7 @@ const TabLayout = ({ navigation }: any) => {
                                     size={24}
                                     color="#F5C722"
                                 />
-                            </TouchableOpacity>
+                            </Pressable>
                         ),
                         headerTitleAlign: "center",
                         headerRight: () => (
@@ -64,7 +59,7 @@ const TabLayout = ({ navigation }: any) => {
                         ),
                         headerStyle: {
                             backgroundColor: "#8A252C", // Set the header background color
-                            zIndex: 2000, // Ensure header stays on top
+                            elevation: 5, // Ensure header stays on top
                         },
                         headerTintColor: "#F5C722",
                     }}
@@ -79,7 +74,6 @@ const TabLayout = ({ navigation }: any) => {
                         name="schedule"
                         options={{ title: "Schedule" }}
                     />
-                    <Tabs.Screen name="index" options={{ title: "Index" }} />
                 </Tabs>
             </View>
         </View>

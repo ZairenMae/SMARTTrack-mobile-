@@ -58,7 +58,7 @@ const TabLayout = ({ navigation }: any) => {
                         headerRight: () => <View style={styles.circleButton} />,
                         headerStyle: {
                             backgroundColor: "#8A252C", // Set the header background color
-                            zIndex: 2000, // Ensure header stays on top
+                            elevation: 5, // Ensure header stays on top
                         },
                         headerTintColor: "#F5C722",
                     }}

@@ -3,7 +3,7 @@ import {
     View,
     StyleSheet,
     TouchableOpacity,
-    TouchableWithoutFeedback,
+    Pressable,
     ImageBackground,
 } from "react-native";
 import { Tabs, useRouter } from "expo-router"; // Use `useRouter` for navigation
@@ -29,9 +29,9 @@ const TabLayout = () => {
         <View style={styles.container}>
             {/* Overlay to detect outside clicks and close the sidebar */}
             {isSidebarVisible && (
-                <TouchableWithoutFeedback onPress={handleOutsidePress}>
+                <Pressable onPress={handleOutsidePress}>
                     <View style={styles.overlay} />
-                </TouchableWithoutFeedback>
+                </Pressable>
             )}
 
             {/* SideBar rendering */}
@@ -66,7 +66,7 @@ const TabLayout = () => {
                         ),
                         headerStyle: {
                             backgroundColor: "#8A252C", // Set the header background color
-                            zIndex: 2000, // Ensure header stays on top
+                            elevation: 5, // Ensure header stays on top
                         },
                         headerTintColor: "#F5C722",
                     }}
