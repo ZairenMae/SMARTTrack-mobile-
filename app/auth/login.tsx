@@ -1,9 +1,21 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, Image, StyleSheet, ActivityIndicator, Modal } from "react-native";
+import {
+    View,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    Image,
+    StyleSheet,
+    ActivityIndicator,
+    Modal,
+} from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { FIREBASE_AUTH, FIREBASE_DB } from "@/FirebaseConfig";
-import { signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
+import {
+    signInWithEmailAndPassword,
+    sendPasswordResetEmail,
+} from "firebase/auth";
 import { getDocs, query, where, collection } from "firebase/firestore";
 
 export default function Login() {
@@ -30,22 +42,24 @@ export default function Login() {
 
     const handleSignIn = async () => {
         if (!idNumber || !password) {
-            showModal("Please fill out both the ID Number/Email and password fields.");
+            showModal(
+                "Please fill out both the ID Number/Email and password fields."
+            );
             return;
         }
-    
+
         setLoading(true);
-    
+
         try {
             let email;
-    
+
             // Check if input is an email
             if (idNumber.includes("@")) {
                 email = idNumber;
             } else {
                 // Sanitize and validate ID number
                 const sanitizedIdNumber = idNumber.trim();
-    
+
                 // Validate the format (e.g., 00-0000-000)
                 const regex = /^(\d{2})-(\d{4})-(\d{3})$/;
                 if (!regex.test(sanitizedIdNumber)) {
@@ -53,51 +67,56 @@ export default function Login() {
                     setLoading(false);
                     return;
                 }
-    
+
                 // Query Firestore for the ID number
                 const userQuery = query(
                     collection(FIREBASE_DB, "users"),
                     where("idNumber", "==", sanitizedIdNumber)
                 );
-    
+
                 const querySnapshot = await getDocs(userQuery);
-    
+
                 if (querySnapshot.empty) {
                     showModal("No user found with this ID Number.");
                     setLoading(false);
                     return;
                 }
-    
+
                 // Use the email from Firestore
                 email = querySnapshot.docs[0].data().email;
             }
-    
+
             console.log("Attempting to sign in with email:", email);
-    
+
             // Sign in with Firebase
-            const userCredential = await signInWithEmailAndPassword(auth, email, password);
+            const userCredential = await signInWithEmailAndPassword(
+                auth,
+                email,
+                password
+            );
             console.log("User signed in:", userCredential.user.email);
-    
+
             // Navigate based on role
             const userQuery = query(
                 collection(FIREBASE_DB, "users"),
                 where("email", "==", email)
             );
             const userSnapshot = await getDocs(userQuery);
-    
+
             if (!userSnapshot.empty) {
                 const userData = userSnapshot.docs[0].data();
                 if (userData.userType === "teacher") {
                     router.push("/facultypage/home");
                 } else if (userData.userType === "student") {
                     router.push("/userpage/home");
+                } else if (userData.userType === "admin") {
+                    router.push("/admin/home");
                 } else {
                     showModal("Unknown user type.");
                 }
             } else {
                 showModal("User data not found.");
             }
-    
         } catch (error) {
             console.error("Error:", error);
             showModal("An error occurred during sign-in.");
@@ -120,7 +139,9 @@ export default function Login() {
             setIsCardVisible(false); // Close the card after success
         } catch (error) {
             console.error(error);
-            showModal("Failed to send password reset link. Please try again later.");
+            showModal(
+                "Failed to send password reset link. Please try again later."
+            );
         } finally {
             setLoading(false);
         }
@@ -128,9 +149,14 @@ export default function Login() {
 
     return (
         <View style={styles.container}>
-            <Image source={require("../../assets/images/logo.png")} style={styles.logo} />
+            <Image
+                source={require("../../assets/images/logo.png")}
+                style={styles.logo}
+            />
             <Text style={styles.welcomeText}>Welcome</Text>
-            <Text style={styles.signInText}>Sign in to access your account</Text>
+            <Text style={styles.signInText}>
+                Sign in to access your account
+            </Text>
 
             <View style={styles.loginContainer}>
                 <Text style={styles.loginLabel}>LOGIN</Text>
@@ -167,15 +193,24 @@ export default function Login() {
 
                 <View style={styles.forgotPasswordContainer}>
                     <TouchableOpacity onPress={() => setIsCardVisible(true)}>
-                        <Text style={styles.forgotPasswordText}>Forgot password?</Text>
+                        <Text style={styles.forgotPasswordText}>
+                            Forgot password?
+                        </Text>
                     </TouchableOpacity>
                 </View>
 
-                <TouchableOpacity style={styles.signInButton} onPress={handleSignIn}>
+                <TouchableOpacity
+                    style={styles.signInButton}
+                    onPress={handleSignIn}
+                >
                     <Text style={styles.signInButtonText}>SIGN IN</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity onPress={() => router.push({ pathname: "/auth/register", params: {} })}>
+                <TouchableOpacity
+                    onPress={() =>
+                        router.push({ pathname: "/auth/register", params: {} })
+                    }
+                >
                     <Text style={styles.registerText}>
                         Not a member?{" "}
                         <Text style={styles.registerLink}>Register now</Text>
@@ -187,7 +222,9 @@ export default function Login() {
             {isCardVisible && (
                 <View style={styles.cardContainer}>
                     <View style={styles.card}>
-                        <Text style={styles.cardTitle}>Reset Your Password</Text>
+                        <Text style={styles.cardTitle}>
+                            Reset Your Password
+                        </Text>
                         <TextInput
                             style={styles.input}
                             placeholder="Enter your ID number"
@@ -198,14 +235,24 @@ export default function Login() {
                             <ActivityIndicator size="large" color="#FFC107" />
                         ) : (
                             <>
-                                <TouchableOpacity style={styles.cardButton} onPress={handleForgotPassword}>
-                                    <Text style={styles.cardButtonText}>Send Reset Link</Text>
+                                <TouchableOpacity
+                                    style={styles.cardButton}
+                                    onPress={handleForgotPassword}
+                                >
+                                    <Text style={styles.cardButtonText}>
+                                        Send Reset Link
+                                    </Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity
-                                    style={[styles.cardButton, { backgroundColor: "#800000" }]}
+                                    style={[
+                                        styles.cardButton,
+                                        { backgroundColor: "#800000" },
+                                    ]}
                                     onPress={() => setIsCardVisible(false)}
                                 >
-                                    <Text style={styles.cardButtonText}>Cancel</Text>
+                                    <Text style={styles.cardButtonText}>
+                                        Cancel
+                                    </Text>
                                 </TouchableOpacity>
                             </>
                         )}
@@ -223,7 +270,10 @@ export default function Login() {
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
                         <Text style={styles.modalText}>{modalMessage}</Text>
-                        <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.modalButton}>
+                        <TouchableOpacity
+                            onPress={() => setModalVisible(false)}
+                            style={styles.modalButton}
+                        >
                             <Text style={styles.modalButtonText}>OK</Text>
                         </TouchableOpacity>
                     </View>

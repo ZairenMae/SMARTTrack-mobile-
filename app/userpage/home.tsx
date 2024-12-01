@@ -17,8 +17,8 @@ const Home = () => {
                 )}
             </View>
             <View style={styles.room}>
-                <CardRoom name="NSTP 1" section="G2" time="walay time" />
-                <CardRoom name="NSTP 1" section="G2" time="walay time" />
+                {/* <CardRoom name="NSTP 1" section="G2" startTime="walay time" />
+                <CardRoom name="NSTP 1" section="G2" startTime="walay time" /> */}
             </View>
         </View>
     );
