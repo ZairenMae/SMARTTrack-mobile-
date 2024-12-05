@@ -9,7 +9,7 @@ const Home = () => {
     return (
         <View style={styles.container}>
             <View style={styles.header}>
-                Welcome!
+                <Text>Welcome!</Text>
                 {address ? (
                     <Text>Address: {address}</Text>
                 ) : (

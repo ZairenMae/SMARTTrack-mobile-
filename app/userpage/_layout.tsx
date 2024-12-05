@@ -36,7 +36,7 @@ const TabLayout = () => {
 
             {/* SideBar rendering */}
             <View style={styles.sidebarContainer}>
-                {isSidebarVisible && <SideBar navigation={router} />}{" "}
+                {isSidebarVisible && <SideBar navigation={router} />}
                 {/* Pass router */}
             </View>
 

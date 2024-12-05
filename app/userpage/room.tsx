@@ -15,7 +15,6 @@ import {
     collection,
     getDocs,
     doc,
-    addDoc,
     getDoc,
     setDoc,
     query,
@@ -37,7 +36,6 @@ const StudentRoom = () => {
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(FIREBASE_AUTH, (currentUser) => {
             if (currentUser) {
-                console.log("Authenticated user:", currentUser.uid);
                 setUser({
                     uid: currentUser.uid,
                     name: currentUser.displayName || "Unknown User",
@@ -46,7 +44,6 @@ const StudentRoom = () => {
 
                 fetchJoinedRooms(currentUser.uid);
             } else {
-                console.log("No authenticated user.");
                 setUser(null);
                 setJoinedRoom(null);
             }
@@ -55,15 +52,18 @@ const StudentRoom = () => {
         return () => unsubscribe(); // Clean up listener on unmount
     }, []);
 
+    useEffect(() => {
+        // Request camera permissions on mount
+        const requestCameraPermission = async () => {
+            const { status } = await BarCodeScanner.requestPermissionsAsync();
+            setHasPermission(status === "granted");
+        };
+
+        requestCameraPermission();
+    }, []);
+
     const fetchJoinedRooms = async (userId: string) => {
         try {
-            console.log("Fetching joined rooms...");
-            if (!userId) {
-                console.log("No user ID provided.");
-                return;
-            }
-
-            // Query all rooms where the `students` array contains the user ID
             const roomsQuery = query(
                 collection(FIREBASE_DB, "rooms"),
                 where("students", "array-contains", userId)
@@ -77,7 +77,6 @@ const StudentRoom = () => {
                         const roomData = roomDoc.data();
                         const studentIds = roomData.students || [];
 
-                        // Fetch detailed student information
                         const studentDetailsPromises = studentIds.map(
                             async (studentId: string) => {
                                 const studentDocRef = doc(
@@ -105,16 +104,14 @@ const StudentRoom = () => {
                         return {
                             id: roomDoc.id,
                             ...roomData,
-                            students: studentDetails, // Replace string IDs with detailed objects
+                            students: studentDetails,
                         };
                     })
                 );
 
-                console.log("Rooms with detailed students:", rooms);
-                setJoinedRooms(rooms); // Update state with detailed room data
+                setJoinedRooms(rooms);
             } else {
-                console.log("No rooms found for the user.");
-                setJoinedRooms([]); // Clear state if no rooms are found
+                setJoinedRooms([]);
             }
         } catch (error) {
             console.error("Error fetching joined rooms:", error);
@@ -134,14 +131,6 @@ const StudentRoom = () => {
                 return;
             }
 
-            const userDocRef = doc(FIREBASE_DB, "users", userId);
-            const userSnapshot = await getDoc(userDocRef);
-
-            if (!userSnapshot.exists()) {
-                Alert.alert("Error", "User data not found in Firestore.");
-                return;
-            }
-
             const roomQuery = collection(FIREBASE_DB, "rooms");
             const querySnapshot = await getDocs(roomQuery);
             const matchedRoom = querySnapshot.docs.find(
@@ -154,7 +143,6 @@ const StudentRoom = () => {
 
                 const roomDocRef = doc(FIREBASE_DB, "rooms", roomId);
 
-                // Add the user ID to the `students` field (array of references)
                 const updatedStudents = roomData.students || [];
                 if (!updatedStudents.includes(userId)) {
                     updatedStudents.push(userId);
@@ -165,25 +153,19 @@ const StudentRoom = () => {
                     );
                 }
 
-                // Save the joined room ID to the user's Firestore document
-                await setDoc(
-                    userDocRef,
-                    { joinedRoomId: roomId },
-                    { merge: true }
-                );
-
-                const joinedRoomData = {
+                setJoinedRoom({
                     id: roomId,
                     ...roomData,
-                    students: updatedStudents, // Include the updated students list for local use
-                };
+                    students: updatedStudents,
+                });
 
-                setJoinedRoom(joinedRoomData);
-
-                // Save joined room data to AsyncStorage
                 await AsyncStorage.setItem(
                     "@joinedRoom",
-                    JSON.stringify(joinedRoomData)
+                    JSON.stringify({
+                        id: roomId,
+                        ...roomData,
+                        students: updatedStudents,
+                    })
                 );
 
                 setModalVisible(false);
@@ -201,16 +183,70 @@ const StudentRoom = () => {
         }
     };
 
-    const handleCopyToClipboard = (text: string) => {
-        Clipboard.setStringAsync(text);
-        Alert.alert("Copied", "Room code copied to clipboard!");
-    };
-
-    const handleBarCodeScanned = ({ data }: { data: string }) => {
+    const handleBarCodeScanned = async ({ data }: { data: string }) => {
         setIsScanning(false);
         setRoomCode(data);
-        Alert.alert("Scanned", `Room code: ${data}`);
+    
+        try {
+            const userId = FIREBASE_AUTH.currentUser?.uid;
+            if (!userId) {
+                Alert.alert("Error", "User not authenticated.");
+                return;
+            }
+    
+            const roomQuery = collection(FIREBASE_DB, "rooms");
+            const querySnapshot = await getDocs(roomQuery);
+            const matchedRoom = querySnapshot.docs.find(
+                (doc) => doc.data().code === data
+            );
+    
+            if (matchedRoom) {
+                const roomData = matchedRoom.data();
+                const roomId = matchedRoom.id;
+    
+                const roomDocRef = doc(FIREBASE_DB, "rooms", roomId);
+    
+                const updatedStudents = roomData.students || [];
+                if (!updatedStudents.includes(userId)) {
+                    updatedStudents.push(userId);
+                    await setDoc(
+                        roomDocRef,
+                        { students: updatedStudents },
+                        { merge: true }
+                    );
+                }
+    
+                setJoinedRoom({
+                    id: roomId,
+                    ...roomData,
+                    students: updatedStudents,
+                });
+    
+                await AsyncStorage.setItem(
+                    "@joinedRoom",
+                    JSON.stringify({
+                        id: roomId,
+                        ...roomData,
+                        students: updatedStudents,
+                    })
+                );
+    
+                Alert.alert("Success", "You joined the room successfully!");
+    
+                // Fetch updated joined rooms after joining
+                fetchJoinedRooms(userId);
+            } else {
+                Alert.alert(
+                    "Error",
+                    "Room not found. Please check the code and try again."
+                );
+            }
+        } catch (error) {
+            console.error("Error joining room:", error);
+            Alert.alert("Error", "Failed to join the room. Please try again.");
+        }
     };
+    
 
     return (
         <View style={styles.container}>
@@ -244,7 +280,7 @@ const StudentRoom = () => {
                                 Code: {room.id}
                             </Text>
                             <TouchableOpacity
-                                onPress={() => handleCopyToClipboard(room.id)}
+                                onPress={() => Clipboard.setStringAsync(room.id)}
                             >
                                 <MaterialIcons
                                     name="content-copy"
@@ -388,14 +424,14 @@ const styles = StyleSheet.create({
         borderColor: "#ccc",
         borderRadius: 5,
         padding: 10,
-        marginBottom: 15, // Increased spacing below input field
+        marginBottom: 15,
         width: "100%",
     },
     scanButton: {
-        backgroundColor: "#FFC107", // Yellow color for scan button
+        backgroundColor: "#FFC107",
         paddingVertical: 10,
         borderRadius: 5,
-        marginBottom: 20, // Added spacing below the scan button
+        marginBottom: 20,
         alignItems: "center",
     },
     buttonContainer: {
@@ -411,21 +447,21 @@ const styles = StyleSheet.create({
         minWidth: 100,
     },
     cancelButton: {
-        backgroundColor: "#800000", // Maroon color for cancel button
+        backgroundColor: "#800000",
     },
     confirmButton: {
-        backgroundColor: "#800000", // Maroon color for join button
+        backgroundColor: "#800000",
     },
     barcodeScannerContainer: {
         flex: 1,
         justifyContent: "center",
         alignItems: "center",
-        backgroundColor: "rgba(0, 0, 0, 0.8)", // Dark overlay for scanner
+        backgroundColor: "rgba(0, 0, 0, 0.8)",
     },
     closeScannerButton: {
         position: "absolute",
         bottom: 20,
-        backgroundColor: "#800000", // Maroon color for close button
+        backgroundColor: "#800000",
         padding: 10,
         borderRadius: 5,
     },
@@ -456,7 +492,7 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     buttonText: {
-        color: "#fff", // White text
+        color: "#fff",
         fontSize: 16,
         fontWeight: "bold",
         textAlign: "center",
