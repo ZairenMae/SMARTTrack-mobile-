@@ -124,7 +124,7 @@ export default function Login() {
             setLoading(false);
         }
     };
-
+    
     const handleForgotPassword = async () => {
         if (!resetEmail) {
             showModal("Please enter your email address.");

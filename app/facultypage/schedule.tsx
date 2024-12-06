@@ -1,71 +1,33 @@
-import React, { useState } from "react";
-import {
-    View,
-    Text,
-    StyleSheet,
-    ScrollView,
-    Modal,
-    TextInput,
-    Button,
-    TouchableOpacity,
-    Alert,
-} from "react-native";
-import { Calendar, DateData } from "react-native-calendars";
-import { FontAwesome5 } from "@expo/vector-icons";
-import AntDesign from "@expo/vector-icons/AntDesign";
+import React, { useState, useEffect} from 'react';
+import { View, Text, StyleSheet, ScrollView, Modal, TextInput, Button, TouchableOpacity, Alert } from 'react-native';
+import { Calendar, DateData } from 'react-native-calendars'; 
+import { FontAwesome5 } from '@expo/vector-icons';
+import AntDesign from '@expo/vector-icons/AntDesign';
+import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, getDoc, setDoc} from "firebase/firestore";
+import { FIREBASE_DB as db } from "@/FirebaseConfig";
+
 
 interface Event {
-    id: number;
-    date: string;
-    title: string;
-    location: string;
-    description?: string;
-    students?: string;
-    notify?: boolean;
-    wholeDay?: boolean;
-    startTime?: string;
-    endTime?: string;
+  id: string;
+  date: string;
+  title: string;
+  location: string;
+  description?: string; 
+  students?: string; 
+  notify?: boolean; 
+  wholeDay?: boolean; 
+  startTime?: string; 
+  endTime?: string; 
 }
 
-const initialEvents: Event[] = [
-    {
-        id: 1,
-        date: "2024-09-07",
-        title: "Health Program",
-        location: "N. Bacalso Avenue, Cebu City, Philippines 6000",
-    },
-    {
-        id: 2,
-        date: "2024-09-10",
-        title: "Cleaning Program",
-        location: "N. Bacalso Avenue, Cebu City, Philippines 6000",
-    },
-    {
-        id: 3,
-        date: "2024-09-22",
-        title: "Youth Program",
-        location: "N. Bacalso Avenue, Cebu City, Philippines 6000",
-    },
-    {
-        id: 4,
-        date: "2024-10-05",
-        title: "Environmental Program",
-        location: "N. Bacalso Avenue, Cebu City, Philippines 6000",
-    },
-];
 
 const ScheduleScreen = () => {
-    const [events, setEvents] = useState<Event[]>(initialEvents);
-    const [selectedDate, setSelectedDate] = useState<string>("");
-    const [selectedMonth, setSelectedMonth] = useState<string>("2024-09");
-    const [modalVisible, setModalVisible] = useState<boolean>(false);
-    const [isEditing, setIsEditing] = useState<boolean>(false);
-    const [currentEvent, setCurrentEvent] = useState<Event>({
-        id: 0,
-        date: "",
-        title: "",
-        location: "",
-    });
+  const [events, setEvents] = useState<Event[]>([]);
+  const [selectedDate, setSelectedDate] = useState<string>(''); 
+  const [selectedMonth, setSelectedMonth] = useState<string>('2024-09');
+  const [modalVisible, setModalVisible] = useState<boolean>(false);
+  const [isEditing, setIsEditing] = useState<boolean>(false);
+  const [currentEvent, setCurrentEvent] = useState<Event>({ id: '', date: '', title: '', location: '' });
 
     const markedDates = events.reduce(
         (acc: Record<string, { marked: boolean; dotColor: string }>, event) => {
@@ -79,62 +41,151 @@ const ScheduleScreen = () => {
         return events.filter((event) => event.date.startsWith(selectedMonth));
     };
 
-    // CREATE
-    const handleAddEvent = () => {
-        const newEvent = {
-            ...currentEvent,
-            id: Date.now(),
-            date: selectedDate,
+  // Fetch events 
+  useEffect(() => {
+    const fetchEvents = async () => {
+      const querySnapshot = await getDocs(collection(db, 'events'));
+      const fetchedEvents = querySnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id, 
+          date: data.date || '', 
+          title: data.title || '',
+          location: data.location || '',
+          description: data.description || '', 
+          students: data.students || '',
+          notify: data.notify || false,
+          wholeDay: data.wholeDay || false,
+          startTime: data.startTime || '',
+          endTime: data.endTime || '',
         };
-        setEvents([...events, newEvent]);
-        setModalVisible(false);
-        setCurrentEvent({ id: 0, date: "", title: "", location: "" });
+      });
+      setEvents(fetchedEvents);
     };
 
-    // READ
-    const handleSelectDate = (day: DateData) => {
-        setSelectedDate(day.dateString);
+    fetchEvents();
+  }, []); 
+
+  // CREATE - Add a new event
+const handleAddEvent = async () => {
+  try {
+    const counterDocRef = doc(db, 'counters', 'eventCounter');
+    const counterDoc = await getDoc(counterDocRef);  
+
+    let newId;
+    if (counterDoc.exists()) {
+      const lastId = counterDoc.data().lastId;
+      newId = lastId + 1;
+
+      await updateDoc(counterDocRef, { lastId: newId });
+    } else {
+      newId = 1;
+      await setDoc(counterDocRef, { lastId: newId });
+    }
+
+    const { notify, wholeDay, startTime, endTime } = currentEvent;
+    const newEvent = {
+      ...currentEvent,
+      id: newId, 
+      date: selectedDate,
+      notify: notify ?? false,
+      wholeDay: wholeDay ?? false,
+      startTime: wholeDay ? "8:00 AM" : startTime || "8:00 AM",
+      endTime: wholeDay ? "5:00 PM" : endTime || "5:00 PM",
     };
 
-    // UPDATE
-    const handleEditEvent = (event: Event) => {
-        setCurrentEvent(event);
-        setIsEditing(true);
-        setModalVisible(true);
-    };
+    await addDoc(collection(db, 'events'), newEvent);
 
-    const handleUpdateEvent = () => {
-        const updatedEvents = events.map((event) =>
-            event.id === currentEvent.id ? currentEvent : event
-        );
-        setEvents(updatedEvents);
-        setModalVisible(false);
-        setCurrentEvent({ id: 0, date: "", title: "", location: "" });
-        setIsEditing(false);
-    };
+    setEvents([...events, newEvent]);
+    setModalVisible(false);
+    setCurrentEvent({ id: '', date: '', title: '', location: '' });
+  } catch (error) {
+    console.error("Error adding event: ", error);
+    Alert.alert('Error', 'There was an error adding the event');
+  }
+};
 
-    // DELETE
-    const handleDeleteEvent = (id: number) => {
-        Alert.alert(
-            "Delete Event",
-            "Are you sure you want to delete this event?",
-            [
-                { text: "Cancel", style: "cancel" },
-                {
-                    text: "Delete",
-                    onPress: () => {
-                        console.log("Deleting event...");
-                        const updatedEvents = events.filter(
-                            (event) => event.id !== id
-                        );
-                        console.log("Updated events:", updatedEvents);
-                        setEvents(updatedEvents);
-                    },
-                },
-            ],
-            { cancelable: true }
-        );
-    };
+  // READ - Handle date selection
+  const handleSelectDate = (day: DateData) => {
+    setSelectedDate(day.dateString); 
+  };
+  
+  // UPDATE
+  const handleEditEvent = (event: Event) => {
+    setCurrentEvent(event); 
+    setIsEditing(true); 
+    setModalVisible(true); 
+  };
+
+  const handleUpdateEvent = async () => {
+    try {
+      const eventDocRef = doc(db, "events", currentEvent.id);
+        await updateDoc(eventDocRef, {
+        date: currentEvent.date,
+        title: currentEvent.title,
+        location: currentEvent.location,
+        description: currentEvent.description || '',
+        students: currentEvent.students || '',
+        notify: currentEvent.notify || false,
+        wholeDay: currentEvent.wholeDay || false,
+        startTime: currentEvent.startTime || '',
+        endTime: currentEvent.endTime || '',
+      });
+  
+      setEvents((prevEvents) =>
+        prevEvents.map((event) =>
+          event.id === currentEvent.id ? currentEvent : event
+        )
+      );
+  
+      setModalVisible(false);
+      setCurrentEvent({ id: '', date: '', title: '', location: '' });
+      setIsEditing(false);
+  
+      Alert.alert("Success", "Event updated successfully.");
+    } catch (error) {
+      console.error("Error updating event: ", error);
+      Alert.alert("Error", "There was an error updating the event.");
+    }
+  };
+
+  // DELETE
+  const handleDeleteEvent = async (id: string) => {
+    try {
+      console.log("Deleting event with ID:", id);
+      const eventDoc = doc(db, "events", id); 
+      await deleteDoc(eventDoc); 
+      console.log("Event deleted successfully");
+      Alert.alert("Success", "The event was deleted successfully.");
+      // Refresh the events list after deletion
+      const querySnapshot = await getDocs(collection(db, 'events'));
+      const updatedEvents = querySnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id, 
+          date: data.date || '', 
+          title: data.title || '',
+          location: data.location || '',
+          description: data.description || '', 
+          students: data.students || '',
+          notify: data.notify || false,
+          wholeDay: data.wholeDay || false,
+          startTime: data.startTime || '',
+          endTime: data.endTime || '',
+        };
+      });
+      setEvents(updatedEvents);
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        console.error("Error deleting event from Firestore:", error.message);
+        Alert.alert("Error", `There was an error deleting the event: ${error.message}`);
+      } else {
+        console.error("An unknown error occurred", error);
+        Alert.alert("Error", "An unknown error occurred.");
+      }
+    }
+  };
+  
 
     return (
         <View style={styles.container}>
@@ -159,87 +210,59 @@ const ScheduleScreen = () => {
                 }}
             />
 
-            <ScrollView
-                style={styles.eventsContainer}
-                contentContainerStyle={styles.eventsContentContainer}
-            >
-                {filterEventsByMonth().map((event) => (
-                    <View key={event.id} style={styles.eventCard}>
-                        <View style={styles.eventDateContainer}>
-                            <Text style={styles.eventDate}>
-                                {new Date(event.date).getDate()}
-                            </Text>
-                            {/* Show "ALL DAY" if wholeDay is true; otherwise, show startTime and endTime */}
-                            <Text style={styles.eventTime}>
-                                {event.wholeDay
-                                    ? "ALL DAY"
-                                    : `${event.startTime || "N/A"} - ${
-                                          event.endTime || "N/A"
-                                      }`}
-                            </Text>
-                        </View>
-                        <View style={styles.eventDetails}>
-                            <View
-                                style={[
-                                    styles.eventIndicator,
-                                    {
-                                        backgroundColor:
-                                            event.id % 2 === 0
-                                                ? "#FFD700"
-                                                : "#800000",
-                                    },
-                                ]}
-                            />
-                            <View style={styles.eventTextContainer}>
-                                <Text style={styles.eventTitle}>
-                                    {event.title}
-                                </Text>
-                                <Text style={styles.eventLocation}>
-                                    {event.location}
-                                </Text>
-                            </View>
-                            <TouchableOpacity
-                                onPress={() => handleEditEvent(event)}
-                                style={{ paddingRight: 10 }}
-                            >
-                                <FontAwesome5
-                                    name="edit"
-                                    size={22}
-                                    color="#800000"
-                                />
-                            </TouchableOpacity>
+<ScrollView style={styles.eventsContainer} contentContainerStyle={styles.eventsContentContainer}>
+  {filterEventsByMonth().map((event) => (
+    <View key={event.id} style={styles.eventCard}>
+      <View style={styles.eventDateContainer}>
+        <Text style={styles.eventDate}>{new Date(event.date).getDate()}</Text>
+        {/* Show "ALL DAY" if wholeDay is true; otherwise, show startTime and endTime */}
+        <Text style={styles.eventTime}>
+          {event.wholeDay ? "ALL DAY" : `${event.startTime || "N/A"} - ${event.endTime || "N/A"}`}
+        </Text>
+      </View>
+      <View style={styles.eventDetails}>
+        <View
+          //style={[
+            //styles.eventIndicator,
+           // { backgroundColor: event.id % 2 === 0 ? "#FFD700" : "#800000" },
+          //]}
+        />
+        <View style={styles.eventTextContainer}>
+          <Text style={styles.eventTitle}>{event.title}</Text>
+          <Text style={styles.eventLocation}>{event.location}</Text>
+        </View>
+        <TouchableOpacity
+          onPress={() => handleEditEvent(event)}
+          style={{ paddingRight: 10 }}
+        >
+          <FontAwesome5 name="edit" size={22} color="#800000" />
+        </TouchableOpacity>
 
-                            <TouchableOpacity
-                                onPress={() => handleDeleteEvent(event.id)}
-                            >
-                                <FontAwesome5
-                                    name="minus-square"
-                                    size={24}
-                                    color="#800000"
-                                />
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                ))}
-            </ScrollView>
+        <TouchableOpacity onPress={() => {
+  console.log("Delete button pressed"); // Check if the button press is detected
+  handleDeleteEvent(event.id);
+}}>
+  <FontAwesome5 name="minus-square" size={24} color="#800000" />
+</TouchableOpacity>
 
-            {selectedDate && (
-                <TouchableOpacity
-                    style={styles.addButton}
-                    onPress={() => {
-                        setModalVisible(true);
-                        setIsEditing(false);
-                        setCurrentEvent({
-                            id: 0,
-                            date: selectedDate,
-                            title: "",
-                            location: "",
-                        });
-                    }}
-                >
-                    <AntDesign name="pluscircle" style={styles.addButtonIcon} />
-                </TouchableOpacity>
-            )}
+      </View>
+    </View>
+  ))}
+</ScrollView>
+
+
+      {selectedDate && (
+        <TouchableOpacity
+        style={styles.addButton}
+        onPress={() => {
+          setModalVisible(true);
+          setIsEditing(false);
+          setCurrentEvent({ id: '', date: selectedDate, title: '', location: '' });
+        }}
+      >
+        <AntDesign name="pluscircle" style={styles.addButtonIcon} />
+      </TouchableOpacity>
+      )}
 
             <Modal
                 visible={modalVisible}
