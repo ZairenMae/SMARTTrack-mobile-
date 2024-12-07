@@ -30,8 +30,13 @@
     "plugins": [
       "expo-router"
     ],
+    "permissions": [
+    "CAMERA"
+],
     "experiments": {
       "typedRoutes": true
     }
   }
 }
+
+

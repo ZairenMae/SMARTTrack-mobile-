@@ -1,18 +1,31 @@
 {
-  "extends": "./node_modules/expo/tsconfig.base",
   "compilerOptions": {
+    "jsx": "react",
+    "target": "esnext",
+    "module": "esnext",
     "strict": true,
+    "moduleResolution": "node",
+    "baseUrl": "./",
     "paths": {
       "@/*": [
         "./*"
       ]
-    }
+    },
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true
   },
-  "types": ["firebase"],
   "include": [
     "**/*.ts",
     "**/*.tsx",
     ".expo/types/**/*.ts",
-    "expo-env.d.ts"
-, "app/userpage"  ]
+    "expo-env.d.ts",
+    "app/userpage"
+  ],
+  "exclude": [
+    "node_modules",
+    "build"
+  ],
+  "extends": "expo/tsconfig.base"
 }
