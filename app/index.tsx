@@ -1,3 +1,4 @@
+import React from "react";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { ImageBackground, StyleSheet } from "react-native";

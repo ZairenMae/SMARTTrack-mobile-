@@ -20,21 +20,29 @@ import {
 } from "firebase/firestore"; // Add getDocs
 import { FIREBASE_DB } from "@/FirebaseConfig";
 
+interface Room {
+    id: string;
+    name: string;
+    code: string;
+    section: string;
+    startTime: number;
+    endTime: number;
+    days: string[];
+    students: Student[];
+}
+
+interface Student {
+    id: string;
+    firstName: string;
+    lastName: string;
+}
+
 const Room = () => {
     const [modalVisible, setModalVisible] = useState(false);
     const [confirmationVisible, setConfirmationVisible] = useState(false);
-    const [rooms, setRooms] = useState<{
-        id: string;
-        name: string;
-        section: string;
-        startTime: string;
-        endTime: string;
-        code: string;
-        students?: { id: string; firstName: string; lastName: string }[];
-    }[]>([]);
-    
-    
-    ([]);
+    const [rooms, setRooms] = useState<Room[]>([]);
+
+    [];
     const [roomName, setRoomName] = useState("");
     const [roomSection, setRoomSection] = useState("");
     const [startHour, setStartHour] = useState("");
@@ -46,18 +54,21 @@ const Room = () => {
     const [currentRoom, setCurrentRoom] = useState<any>(null);
     const [selectedDays, setSelectedDays] = useState<string[]>([]);
 
-
     const toggleDaySelection = (day: string) => {
         setSelectedDays((prev) =>
-            prev.includes(day)
-                ? prev.filter((d) => d !== day)
-                : [...prev, day]
+            prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]
         );
     };
-    
-    const dayButtons = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
-    
+    const dayButtons = [
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+        "Sunday",
+    ];
 
     const generateRoomCode = () =>
         Math.floor(1000000 + Math.random() * 9000000).toString();
@@ -96,18 +107,22 @@ const Room = () => {
         ) {
             const startTime = new Date();
             startTime.setHours(
-                startAmPm === "AM" ? parseInt(startHour) % 12 : (parseInt(startHour) % 12) + 12,
+                startAmPm === "AM"
+                    ? parseInt(startHour) % 12
+                    : (parseInt(startHour) % 12) + 12,
                 parseInt(startMinute),
                 0
             );
-    
+
             const endTime = new Date();
             endTime.setHours(
-                endAmPm === "AM" ? parseInt(endHour) % 12 : (parseInt(endHour) % 12) + 12,
+                endAmPm === "AM"
+                    ? parseInt(endHour) % 12
+                    : (parseInt(endHour) % 12) + 12,
                 parseInt(endMinute),
                 0
             );
-    
+
             const newRoom = {
                 name: roomName,
                 section: roomSection,
@@ -115,7 +130,7 @@ const Room = () => {
                 endTime: endTime.getTime(), // Save as timestamp
                 code: generateRoomCode(),
             };
-    
+
             setCurrentRoom(newRoom);
             setConfirmationVisible(true);
             setModalVisible(false);
@@ -123,7 +138,6 @@ const Room = () => {
             Alert.alert("Error", "All fields are required to create a room.");
         }
     };
-    
 
     const confirmRoomCreation = async () => {
         try {
@@ -134,13 +148,13 @@ const Room = () => {
                     roomWithDays
                 );
                 console.log("Room added with ID:", docRef.id);
-    
+
                 setRooms((prevRooms) => [
                     ...prevRooms,
                     { ...roomWithDays, id: docRef.id },
                 ]);
             }
-    
+
             setCurrentRoom(null);
             setConfirmationVisible(false);
         } catch (error) {
@@ -151,7 +165,7 @@ const Room = () => {
             );
         }
     };
-    
+
     const cancelRoomCreation = () => {
         setCurrentRoom(null);
         setConfirmationVisible(false);
@@ -165,11 +179,18 @@ const Room = () => {
     // Fetch rooms from Firestore on component mount
     const fetchRooms = async () => {
         try {
-            const roomsSnapshot = await getDocs(collection(FIREBASE_DB, "rooms"));
-            const usersSnapshot = await getDocs(collection(FIREBASE_DB, "users"));
-    
+            const roomsSnapshot = await getDocs(
+                collection(FIREBASE_DB, "rooms")
+            );
+            const usersSnapshot = await getDocs(
+                collection(FIREBASE_DB, "users")
+            );
+
             // Create a map of user IDs to user details
-            const usersMap: Record<string, { firstName: string; lastName: string }> = {};
+            const usersMap: Record<
+                string,
+                { firstName: string; lastName: string }
+            > = {};
             usersSnapshot.forEach((userDoc) => {
                 const userData = userDoc.data();
                 usersMap[userDoc.id] = {
@@ -177,7 +198,7 @@ const Room = () => {
                     lastName: userData.lastName || "Unknown",
                 };
             });
-    
+
             // Map rooms and fetch full student details
             const fetchedRooms = roomsSnapshot.docs.map((roomDoc) => {
                 const roomData = roomDoc.data();
@@ -187,25 +208,24 @@ const Room = () => {
                         firstName: usersMap[studentId]?.firstName || "Unknown",
                         lastName: usersMap[studentId]?.lastName || "Unknown",
                     })) || [];
+
                 return {
                     id: roomDoc.id,
                     name: roomData.name || "Unnamed Room",
-                    section: roomData.section || "No Section",
-                    startTime: roomData.startTime || "N/A",
-                    endTime: roomData.endTime || "N/A",
                     code: roomData.code || "0000000",
+                    section: roomData.section || "No Section",
+                    startTime: roomData.startTime || 0,
+                    endTime: roomData.endTime || 0,
+                    days: Array.isArray(roomData.days) ? roomData.days : [],
                     students,
                 };
-            });
-    
+            }) as Room[];
+
             setRooms(fetchedRooms);
         } catch (error) {
             console.error("Error fetching rooms:", error);
-            Alert.alert("Error", "Failed to fetch rooms. Please try again.");
         }
     };
-    
-    
 
     useEffect(() => {
         fetchRooms();
@@ -225,25 +245,26 @@ const Room = () => {
                 </TouchableOpacity>
             </View>
 
-            {rooms.map((room) => (
-            <View key={room.id} style={styles.roomCard}>
-                <CardRoom
-                    id={room.id}
-                    name={room.name}
-                    section={room.section}
-                    startTime={room.startTime}
-                    endTime={room.endTime}
-                    roomCode={room.code}
-                />
-               {room.students?.map((student) => (
-                    <Text key={student.id}>
-                        {student.id} - {student.firstName} {student.lastName}
-                    </Text>
+            <View style={styles.roomCardContainer}>
+                {rooms.map((room) => (
+                    <View key={room.id} style={styles.roomCard}>
+                        <CardRoom
+                            id={room.id}
+                            name={room.name}
+                            section={room.section}
+                            startTime={room.startTime}
+                            endTime={room.endTime}
+                            roomCode={room.code}
+                        />
+                        <Text>Students:</Text>
+                        {room.students?.map((student) => (
+                            <Text key={student.id}>
+                                {student.firstName} {student.lastName}
+                            </Text>
+                        ))}
+                    </View>
                 ))}
-
             </View>
-        ))}
-
 
             {/* Modal for Creating a Room */}
             <Modal
@@ -336,19 +357,23 @@ const Room = () => {
                             </View>
                         </View>
                         <View style={styles.daysContainer}>
-                                {dayButtons.map((day) => (
-                                    <TouchableOpacity
-                                        key={day}
-                                        style={[
-                                            styles.dayButton,
-                                            selectedDays.includes(day) ? styles.dayButtonSelected : null,
-                                        ]}
-                                        onPress={() => toggleDaySelection(day)}
-                                    >
-                                        <Text style={styles.dayButtonText}>{day}</Text>
-                                    </TouchableOpacity>
-                                ))}
-                            </View>
+                            {dayButtons.map((day) => (
+                                <TouchableOpacity
+                                    key={day}
+                                    style={[
+                                        styles.dayButton,
+                                        selectedDays.includes(day)
+                                            ? styles.dayButtonSelected
+                                            : null,
+                                    ]}
+                                    onPress={() => toggleDaySelection(day)}
+                                >
+                                    <Text style={styles.dayButtonText}>
+                                        {day}
+                                    </Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
 
                         <View style={styles.buttonContainer}>
                             <TouchableOpacity
@@ -543,9 +568,16 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: "bold",
     },
+    roomCardContainer: {
+        width: "100%",
+        alignItems: "center",
+        marginBottom: 100,
+    },
     roomCard: {
+        marginTop: 20,
         marginBottom: 10,
         alignItems: "center",
+        width: "90%",
     },
     roomCode: {
         marginTop: 5,
@@ -592,7 +624,6 @@ const styles = StyleSheet.create({
         fontSize: 14,
         fontWeight: "bold",
     },
-    
 });
 
 export default Room;

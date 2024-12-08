@@ -24,8 +24,8 @@ type CardRoomProps = {
     id: string;
     name?: string;
     section?: string;
-    startTime?: string;
-    endTime?: string;
+    startTime?: number;
+    endTime?: number;
     roomCode: string;
 };
 
@@ -79,7 +79,15 @@ const CardRoom = ({
                     />
                 </View>
                 <View style={styles.details}>
-                    <Text style={styles.title}>{name}</Text>
+                    <View style={styles.header}>
+                        <Text style={styles.title}>{name}</Text>
+                        <TouchableOpacity
+                            onPress={() => deleteRoom(id)}
+                            style={styles.deleteButton}
+                        >
+                            <Text style={styles.deleteButtonText}>X</Text>
+                        </TouchableOpacity>
+                    </View>
                     <Text style={styles.subtitle}>{section}</Text>
                     <Text style={styles.subtitle}>{`Start: ${startTime}`}</Text>
                     <Text style={styles.subtitle}>{`End: ${endTime}`}</Text>
@@ -95,12 +103,6 @@ const CardRoom = ({
                             />
                         </TouchableOpacity>
                     </View>
-                    <TouchableOpacity
-                        onPress={() => deleteRoom(id)}
-                        style={styles.deleteButton}
-                    >
-                        <Text style={styles.deleteButtonText}>X</Text>
-                    </TouchableOpacity>
                 </View>
 
                 {/* QR Code Modal */}
@@ -154,6 +156,7 @@ const styles = StyleSheet.create({
         padding: 10,
         width: "100%",
         position: "relative",
+        overflow: "hidden",
     },
     card: {
         backgroundColor: "white",
@@ -171,6 +174,8 @@ const styles = StyleSheet.create({
         width: "100%",
         position: "relative",
         padding: 10,
+        overflow: "hidden",
+        flexWrap: "wrap",
     },
     bannerContainer: {
         flexDirection: "row",
@@ -190,13 +195,18 @@ const styles = StyleSheet.create({
         height: "100%",
     },
     details: {
-        width: "100%",
+        width: "55%",
         flexDirection: "column",
         alignItems: "flex-start",
+        flexWrap: "wrap",
     },
     title: {
         fontWeight: "bold",
         fontSize: 24,
+        flexWrap: "wrap",
+        flexShrink: 1,
+        width: "80%",
+        textAlign: "left",
     },
     subtitle: {
         fontSize: 16,
@@ -236,15 +246,23 @@ const styles = StyleSheet.create({
         color: "#fff",
         fontWeight: "bold",
     },
+    header: {
+        width: "100%",
+        flex: 1,
+        justifyContent: "space-between",
+        flexDirection: "row",
+        position: "relative",
+    },
     deleteButton: {
+        position: "absolute",
         marginTop: 5,
         backgroundColor: "#FF4D4D",
         paddingHorizontal: 10,
         paddingVertical: 5,
         borderRadius: 5,
-        position: "absolute",
         flex: 1,
-        right: 130,
+        flexDirection: "row",
+        left: -120,
     },
     deleteButtonText: {
         color: "white",
