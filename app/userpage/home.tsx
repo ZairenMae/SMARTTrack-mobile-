@@ -2,7 +2,7 @@ import { StyleSheet, Text, View, TouchableOpacity, Modal } from "react-native";
 import React, { useState, useEffect } from "react";
 import { collection, getDocs, getDoc, doc, addDoc, query, where } from "firebase/firestore";
 import { FIREBASE_DB } from "@/FirebaseConfig";
-import { getAuth } from "firebase/auth";
+import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { MaterialIcons } from "@expo/vector-icons"; 
 import useViewLocation from "../../hooks/useViewLocation";
 import { Timestamp } from "firebase/firestore";
@@ -30,25 +30,27 @@ const Home = () => {
 
     const { address, error } = useViewLocation();
 
-    const fetchCurrentUser = async () => {
+    const fetchCurrentUser = () => {
         const auth = getAuth();
-        const currentUser = auth.currentUser;
-        if (currentUser) {
-            setUserId(currentUser.uid);
-            try {
-                const userDoc = await getDoc(doc(FIREBASE_DB, "users", currentUser.uid));
-                if (userDoc.exists()) {
-                    const userData = userDoc.data();
-                    setUserName(userData?.firstName || "User");
-                } else {
-                    console.error("User document does not exist.");
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                setUserId(user.uid);
+                try {
+                    const userDoc = await getDoc(doc(FIREBASE_DB, "users", user.uid));
+                    if (userDoc.exists()) {
+                        const userData = userDoc.data();
+                        setUserName(userData?.firstName || "User");
+                    } else {
+                        console.error("User document does not exist.");
+                    }
+                } catch (error) {
+                    console.error("Error fetching user details:", error);
                 }
-            } catch (error) {
-                console.error("Error fetching user details:", error);
+            } else {
+                console.error("No user is logged in.");
+                // You can redirect to login if required
             }
-        } else {
-            console.error("No user is logged in.");
-        }
+        });
     };
 
     const fetchRooms = async () => {
@@ -74,7 +76,23 @@ const Home = () => {
         });
         return `${formattedDate}, ${formattedTime}`;
     };
- 
+
+   
+
+    useEffect(() => {
+        fetchCurrentUser();
+    }, []);
+
+    useEffect(() => {
+        if (userId) {
+            fetchRooms();
+        }
+    }, [userId]);
+
+    useEffect(() => {
+        filterRoomsByDay();
+    }, [rooms]);
+
     const handleTime = async (room: Room) => {
         const currentTime = new Date().getTime();
         const currentFormattedDate = new Date().toLocaleDateString("en-US");
@@ -178,21 +196,6 @@ const Home = () => {
         // Reset showTimeoutButton after filtering rooms
         setShowTimeoutButton(false);
     };
-    
-    useEffect(() => {
-        fetchCurrentUser();
-    }, []);
-    
-    useEffect(() => {
-        if (userId) {
-            fetchRooms();
-        }
-    }, [userId]);
-    
-    useEffect(() => {
-        filterRoomsByDay();
-    }, [rooms]);
-    
 
     return (
         <View style={styles.container}>
