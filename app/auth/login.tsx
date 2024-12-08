@@ -1,4 +1,4 @@
-import React, { Component } from "react";
+import React, { useState } from "react";
 import {
     View,
     Text,
@@ -10,6 +10,7 @@ import {
     Modal,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import { FIREBASE_AUTH, FIREBASE_DB } from "@/FirebaseConfig";
 import {
     signInWithEmailAndPassword,
@@ -17,71 +18,57 @@ import {
 } from "firebase/auth";
 import { getDocs, query, where, collection } from "firebase/firestore";
 
-interface LoginState {
-    idNumber: string;
-    password: string;
-    showPassword: boolean;
-    loading: boolean;
-    resetEmail: string;
-    isCardVisible: boolean;
-    modalVisible: boolean;
-    modalMessage: string;
-}
+export default function Login() {
+    const [idNumber, setIdNumber] = useState("");
+    const [password, setPassword] = useState("");
+    const [showPassword, setShowPassword] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [resetEmail, setResetEmail] = useState(""); // State for password reset email
+    const [isCardVisible, setIsCardVisible] = useState(false); // State to control card visibility
+    const [modalVisible, setModalVisible] = useState(false); // Modal visibility
+    const [modalMessage, setModalMessage] = useState(""); // Modal message content
+    const router = useRouter();
+    const auth = FIREBASE_AUTH;
 
-export default class Login extends Component<{}, LoginState> {
-    constructor(props: {}) {
-        super(props);
-        this.state = {
-            idNumber: "",
-            password: "",
-            showPassword: false,
-            loading: false,
-            resetEmail: "",
-            isCardVisible: false,
-            modalVisible: false,
-            modalMessage: "",
-        };
-    }
-
-    toggleShowPassword = (): void => {
-        this.setState((prevState) => ({
-            showPassword: !prevState.showPassword,
-        }));
+    const toggleShowPassword = () => {
+        setShowPassword(!showPassword);
     };
 
-    showModal = (message: string): void => {
-        this.setState({
-            modalMessage: message,
-            modalVisible: true,
-        });
+    // Function to display modal with a message
+    const showModal = (message: string) => {
+        setModalMessage(message);
+        setModalVisible(true);
     };
 
-    handleSignIn = async (): Promise<void> => {
-        const { idNumber, password } = this.state;
-
+    const handleSignIn = async () => {
         if (!idNumber || !password) {
-            this.showModal("Please fill out both the ID Number/Email and password fields.");
+            showModal(
+                "Please fill out both the ID Number/Email and password fields."
+            );
             return;
         }
 
-        this.setState({ loading: true });
+        setLoading(true);
 
         try {
-            let email: string;
+            let email;
 
             // Check if input is an email
             if (idNumber.includes("@")) {
                 email = idNumber;
             } else {
+                // Sanitize and validate ID number
                 const sanitizedIdNumber = idNumber.trim();
 
+                // Validate the format (e.g., 00-0000-000)
                 const regex = /^(\d{2})-(\d{4})-(\d{3})$/;
                 if (!regex.test(sanitizedIdNumber)) {
-                    this.showModal("Invalid ID number format. Use 00-0000-000.");
-                    this.setState({ loading: false });
+                    showModal("Invalid ID number format. Use 00-0000-000.");
+                    setLoading(false);
                     return;
                 }
 
+                // Query Firestore for the ID number
                 const userQuery = query(
                     collection(FIREBASE_DB, "users"),
                     where("idNumber", "==", sanitizedIdNumber)
@@ -90,24 +77,26 @@ export default class Login extends Component<{}, LoginState> {
                 const querySnapshot = await getDocs(userQuery);
 
                 if (querySnapshot.empty) {
-                    this.showModal("No user found with this ID Number.");
-                    this.setState({ loading: false });
+                    showModal("No user found with this ID Number.");
+                    setLoading(false);
                     return;
                 }
 
+                // Use the email from Firestore
                 email = querySnapshot.docs[0].data().email;
             }
 
             console.log("Attempting to sign in with email:", email);
 
+            // Sign in with Firebase
             const userCredential = await signInWithEmailAndPassword(
-                FIREBASE_AUTH,
+                auth,
                 email,
                 password
             );
-
             console.log("User signed in:", userCredential.user.email);
 
+            // Navigate based on role
             const userQuery = query(
                 collection(FIREBASE_DB, "users"),
                 where("email", "==", email)
@@ -116,169 +105,184 @@ export default class Login extends Component<{}, LoginState> {
 
             if (!userSnapshot.empty) {
                 const userData = userSnapshot.docs[0].data();
-                const userType = userData.userType;
-                if (userType === "teacher") {
-                    console.log("Redirecting to Teacher Dashboard");
-                } else if (userType === "student") {
-                    console.log("Redirecting to Student Dashboard");
-                } else if (userType === "admin") {
-                    console.log("Redirecting to Admin Dashboard");
+                if (userData.userType === "teacher") {
+                    router.push("/facultypage/home");
+                } else if (userData.userType === "student") {
+                    router.push("/userpage/home");
+                } else if (userData.userType === "admin") {
+                    router.push("/admin/home");
                 } else {
-                    this.showModal("Unknown user type.");
+                    showModal("Unknown user type.");
                 }
             } else {
-                this.showModal("User data not found.");
+                showModal("User data not found.");
             }
         } catch (error) {
             console.error("Error:", error);
-            this.showModal("An error occurred during sign-in.");
+            showModal("An error occurred during sign-in.");
         } finally {
-            this.setState({ loading: false });
+            setLoading(false);
         }
     };
-
-    handleForgotPassword = async (): Promise<void> => {
-        const { resetEmail } = this.state;
-
+    
+    const handleForgotPassword = async () => {
         if (!resetEmail) {
-            this.showModal("Please enter your email address.");
+            showModal("Please enter your email address.");
             return;
         }
 
-        this.setState({ loading: true });
+        setLoading(true);
 
         try {
-            await sendPasswordResetEmail(FIREBASE_AUTH, resetEmail);
-            this.showModal("Password reset link sent! Please check your email.");
-            this.setState({ isCardVisible: false });
+            await sendPasswordResetEmail(auth, resetEmail);
+            showModal("Password reset link sent! Please check your email.");
+            setIsCardVisible(false); // Close the card after success
         } catch (error) {
             console.error(error);
-            this.showModal("Failed to send password reset link. Please try again later.");
+            showModal(
+                "Failed to send password reset link. Please try again later."
+            );
         } finally {
-            this.setState({ loading: false });
+            setLoading(false);
         }
     };
 
-    render() {
-        const {
-            idNumber,
-            password,
-            showPassword,
-            loading,
-            resetEmail,
-            isCardVisible,
-            modalVisible,
-            modalMessage,
-        } = this.state;
+    return (
+        <View style={styles.container}>
+            <Image
+                source={require("../../assets/images/logo.png")}
+                style={styles.logo}
+            />
+            <Text style={styles.welcomeText}>Welcome</Text>
+            <Text style={styles.signInText}>
+                Sign in to access your account
+            </Text>
 
-        return (
-            <View style={styles.container}>
-                <Image
-                    source={require("../../assets/images/logo.png")}
-                    style={styles.logo}
+            <View style={styles.loginContainer}>
+                <Text style={styles.loginLabel}>LOGIN</Text>
+
+                <Text style={styles.loginLabel}>ID Number</Text>
+                <TextInput
+                    style={styles.input}
+                    placeholder=""
+                    value={idNumber}
+                    onChangeText={setIdNumber}
                 />
-                <Text style={styles.welcomeText}>Welcome</Text>
-                <Text style={styles.signInText}>Sign in to access your account</Text>
 
-                <View style={styles.loginContainer}>
-                    <Text style={styles.loginLabel}>LOGIN</Text>
-
-                    <Text style={styles.loginLabel}>ID Number</Text>
+                <Text style={styles.loginLabel}>Password</Text>
+                <View style={styles.passwordContainer}>
                     <TextInput
                         style={styles.input}
                         placeholder=""
-                        value={idNumber}
-                        onChangeText={(text) => this.setState({ idNumber: text })}
+                        secureTextEntry={!showPassword}
+                        value={password}
+                        onChangeText={setPassword}
                     />
 
-                    <Text style={styles.loginLabel}>Password</Text>
-                    <View style={styles.passwordContainer}>
-                        <TextInput
-                            style={styles.input}
-                            placeholder=""
-                            secureTextEntry={!showPassword}
-                            value={password}
-                            onChangeText={(text) => this.setState({ password: text })}
-                        />
-                        <MaterialCommunityIcons
-                            name={showPassword ? "eye-off" : "eye"}
-                            size={24}
-                            color="#aaa"
-                            style={styles.icon}
-                            onPress={this.toggleShowPassword}
-                        />
-                    </View>
+                    {loading ? (
+                        <ActivityIndicator size="large" color="#FFC107" />
+                    ) : null}
+                    <MaterialCommunityIcons
+                        name={showPassword ? "eye-off" : "eye"}
+                        size={24}
+                        color="#aaa"
+                        style={styles.icon}
+                        onPress={toggleShowPassword}
+                    />
+                </View>
 
-                    {loading && <ActivityIndicator size="large" color="#FFC107" />}
-
-                    <View style={styles.forgotPasswordContainer}>
-                        <TouchableOpacity onPress={() => this.setState({ isCardVisible: true })}>
-                            <Text style={styles.forgotPasswordText}>Forgot password?</Text>
-                        </TouchableOpacity>
-                    </View>
-
-                    <TouchableOpacity
-                        style={styles.signInButton}
-                        onPress={this.handleSignIn}
-                    >
-                        <Text style={styles.signInButtonText}>SIGN IN</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity>
-                        <Text style={styles.registerText}>
-                            Not a member? <Text style={styles.registerLink}>Register now</Text>
+                <View style={styles.forgotPasswordContainer}>
+                    <TouchableOpacity onPress={() => setIsCardVisible(true)}>
+                        <Text style={styles.forgotPasswordText}>
+                            Forgot password?
                         </Text>
                     </TouchableOpacity>
                 </View>
 
-                {isCardVisible && (
-                    <View style={styles.cardContainer}>
-                        <View style={styles.card}>
-                            <Text style={styles.cardTitle}>Reset Your Password</Text>
-                            <TextInput
-                                style={styles.input}
-                                placeholder="Enter your email"
-                                value={resetEmail}
-                                onChangeText={(text) => this.setState({ resetEmail: text })}
-                            />
-                            <TouchableOpacity
-                                style={styles.cardButton}
-                                onPress={this.handleForgotPassword}
-                            >
-                                <Text style={styles.cardButtonText}>Send Reset Link</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={[styles.cardButton, { backgroundColor: "#800000" }]}
-                                onPress={() => this.setState({ isCardVisible: false })}
-                            >
-                                <Text style={styles.cardButtonText}>Cancel</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                )}
-
-                <Modal
-                    visible={modalVisible}
-                    transparent={true}
-                    animationType="fade"
-                    onRequestClose={() => this.setState({ modalVisible: false })}
+                <TouchableOpacity
+                    style={styles.signInButton}
+                    onPress={handleSignIn}
                 >
-                    <View style={styles.modalOverlay}>
-                        <View style={styles.modalContent}>
-                            <Text style={styles.modalText}>{modalMessage}</Text>
-                            <TouchableOpacity
-                                onPress={() => this.setState({ modalVisible: false })}
-                                style={styles.modalButton}
-                            >
-                                <Text style={styles.modalButtonText}>OK</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                </Modal>
+                    <Text style={styles.signInButtonText}>SIGN IN</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                    onPress={() =>
+                        router.push({ pathname: "/auth/register", params: {} })
+                    }
+                >
+                    <Text style={styles.registerText}>
+                        Not a member?{" "}
+                        <Text style={styles.registerLink}>Register now</Text>
+                    </Text>
+                </TouchableOpacity>
             </View>
-        );
-    }
+
+            {/* Card for Forgot Password */}
+            {isCardVisible && (
+                <View style={styles.cardContainer}>
+                    <View style={styles.card}>
+                        <Text style={styles.cardTitle}>
+                            Reset Your Password
+                        </Text>
+                        <TextInput
+                            style={styles.input}
+                            placeholder="Enter your ID number"
+                            value={resetEmail}
+                            onChangeText={setResetEmail}
+                        />
+                        {loading ? (
+                            <ActivityIndicator size="large" color="#FFC107" />
+                        ) : (
+                            <>
+                                <TouchableOpacity
+                                    style={styles.cardButton}
+                                    onPress={handleForgotPassword}
+                                >
+                                    <Text style={styles.cardButtonText}>
+                                        Send Reset Link
+                                    </Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={[
+                                        styles.cardButton,
+                                        { backgroundColor: "#800000" },
+                                    ]}
+                                    onPress={() => setIsCardVisible(false)}
+                                >
+                                    <Text style={styles.cardButtonText}>
+                                        Cancel
+                                    </Text>
+                                </TouchableOpacity>
+                            </>
+                        )}
+                    </View>
+                </View>
+            )}
+
+            {/* Modal for alerts */}
+            <Modal
+                visible={modalVisible}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={() => setModalVisible(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <Text style={styles.modalText}>{modalMessage}</Text>
+                        <TouchableOpacity
+                            onPress={() => setModalVisible(false)}
+                            style={styles.modalButton}
+                        >
+                            <Text style={styles.modalButtonText}>OK</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
+        </View>
+    );
 }
+
 const styles = StyleSheet.create({
     container: {
         flex: 1,
