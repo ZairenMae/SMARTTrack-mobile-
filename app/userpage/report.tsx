@@ -1,13 +1,7 @@
-import React, { useEffect, useState } from "react";
-import {
-    StyleSheet,
-    View,
-    Text,
-    TouchableOpacity,
-    ScrollView,
-} from "react-native";
-import { FIREBASE_DB } from "@/FirebaseConfig";
+import React, { Component } from "react";
+import { StyleSheet, View, Text, TouchableOpacity, ScrollView } from "react-native";
 import { collection, onSnapshot } from "firebase/firestore";
+import { FIREBASE_DB } from "@/FirebaseConfig";
 import ModalComponent from "../../components/modal/Modal";
 
 interface User {
@@ -19,12 +13,34 @@ interface User {
     status: string;
 }
 
-const DashboardReport = () => {
-    const [leaderboard, setLeaderboard] = useState<User[]>([]);
-    const [modalVisible, setModalVisible] = useState(false); // Modal state
+interface DashboardReportState {
+    leaderboard: User[];
+    modalVisible: boolean;
+}
 
-    useEffect(() => {
-        const unsubscribe = onSnapshot(
+class DashboardReport extends Component<{}, DashboardReportState> {
+    private unsubscribe: (() => void) | undefined;
+
+    constructor(props: {}) {
+        super(props);
+        this.state = {
+            leaderboard: [], // Initialize with an empty array
+            modalVisible: false,
+        };
+    }
+
+    componentDidMount() {
+        this.subscribeToLeaderboard();
+    }
+
+    componentWillUnmount() {
+        if (this.unsubscribe) {
+            this.unsubscribe();
+        }
+    }
+
+    subscribeToLeaderboard = () => {
+        this.unsubscribe = onSnapshot(
             collection(FIREBASE_DB, "earlyWorms"),
             (snapshot) => {
                 const users = snapshot.docs.map((doc) => {
@@ -34,9 +50,7 @@ const DashboardReport = () => {
                         section: data.section || "No Section",
                         checkInTime: data.checkInTime || "00:00",
                         thresholdTime: data.thresholdTime || "00:00",
-                        date:
-                            data.date?.toDate().toLocaleDateString() ||
-                            "No Date",
+                        date: data.date?.toDate().toLocaleDateString() || "No Date",
                         status: data.status || "No Status",
                     };
                 });
@@ -47,94 +61,71 @@ const DashboardReport = () => {
                         new Date(`1970-01-01T${b.checkInTime}`).getTime()
                 );
 
-                setLeaderboard(sortedUsers);
+                this.setState({ leaderboard: sortedUsers });
             }
         );
+    };
 
-        return () => unsubscribe();
-    }, []);
+    renderDynamicCard = () => {
+        const { leaderboard } = this.state; // Ensure leaderboard is destructured safely
+        if (!leaderboard || leaderboard.length === 0) {
+            return <Text>No Early Worms Found</Text>;
+        }
 
-    const staticCards = [
-        {
-            title: "Monthly Attendance",
-            progressHeader: "Earliest Time in",
-            progressValue: 75,
-        },
-    ];
-
-    return (
-        <View style={styles.dashboardReport}>
-            <Text style={styles.headerText}>Dashboard Report</Text>
-            <ScrollView contentContainerStyle={styles.scrollContainer}>
-                <View style={styles.cardContainer}>
-                    {/* Dynamic Early Worms Card */}
-                    {leaderboard.length > 0 ? (
-                        <TouchableOpacity
-                            style={styles.card}
-                            onPress={() => setModalVisible(true)} // Open modal on press
-                        >
-                            <Text style={styles.cardTitle}>
-                                Daliy Attendance
-                            </Text>
-                            <View style={styles.infoContainer}>
-                                <Text style={styles.progressHeader}>
-                                    Earliest Time in
-                                </Text>
-                                <Text style={styles.progressValue}>
-                                    {leaderboard[0].userName}
-                                </Text>
-                            </View>
-                        </TouchableOpacity>
-                    ) : (
-                        <Text>No Early Worms Found</Text>
-                    )}
-
-                    {/* Static Cards */}
-                    {staticCards.map((card, index) => (
-                        <View key={index} style={styles.card}>
-                            <Text style={styles.cardTitle}>{card.title}</Text>
-                            <View style={styles.infoContainer}>
-                                <Text style={styles.progressHeader}>
-                                    {card.progressHeader}
-                                </Text>
-                                <Text style={styles.progressValue}>
-                                    {card.progressValue}%
-                                </Text>
-                            </View>
-                        </View>
-                    ))}
+        return (
+            <TouchableOpacity
+                style={styles.card}
+                onPress={() => this.setState({ modalVisible: true })}
+            >
+                <Text style={styles.cardTitle}>Daily Attendance</Text>
+                <View style={styles.infoContainer}>
+                    <Text style={styles.progressHeader}>Earliest Time In</Text>
+                    <Text style={styles.progressValue}>{leaderboard[0].userName}</Text>
                 </View>
-            </ScrollView>
+            </TouchableOpacity>
+        );
+    };
 
-            {/* Modal for Leaderboard */}
-            {leaderboard.length > 0 && (
-                <ModalComponent
-                    visible={modalVisible}
-                    onClose={() => setModalVisible(false)}
-                    title="Early Worm Leaderboard"
-                    message={leaderboard
-                        .map(
-                            (user, index) =>
-                                `${index + 1}. Name: ${
-                                    user.userName
-                                }\n   Section: ${user.section}\n   Check-In: ${
-                                    user.checkInTime
-                                }\n   Status: ${user.status}`
-                        )
-                        .join("\n\n")}
-                    buttons={[
-                        {
-                            text: "Close",
-                            action: () => setModalVisible(false),
-                            color: "gray",
-                        },
-                    ]}
-                    onPress={() => {}}
-                />
-            )}
-        </View>
-    );
-};
+    render() {
+        const { modalVisible, leaderboard } = this.state;
+
+        return (
+            <View style={styles.dashboardReport}>
+                <Text style={styles.headerText}>Dashboard Report</Text>
+                <ScrollView contentContainerStyle={styles.scrollContainer}>
+                    <View style={styles.cardContainer}>
+                        {this.renderDynamicCard()}
+                    </View>
+                </ScrollView>
+
+                {leaderboard.length > 0 && (
+                   <ModalComponent
+                   visible={modalVisible}
+                   onClose={() => this.setState({ modalVisible: false })}
+                   title="Early Worm Leaderboard"
+                   message={leaderboard
+                       .map(
+                           (user, index) =>
+                               `${index + 1}. Name: ${user.userName}\n   Section: ${
+                                   user.section
+                               }\n   Check-In: ${user.checkInTime}\n   Status: ${user.status}`
+                       )
+                       .join("\n\n")}
+                   buttons={[
+                       {
+                           text: "Close",
+                           action: () => this.setState({ modalVisible: false }),
+                           color: "gray",
+                       },
+                   ]}
+                   onPress={() => {}}
+               />
+               
+                )}
+            </View>
+        );
+    }
+}
 
 const styles = StyleSheet.create({
     dashboardReport: {
@@ -143,7 +134,7 @@ const styles = StyleSheet.create({
         padding: 16,
     },
     scrollContainer: {
-        paddingBottom: 20, // Add padding to avoid content being cut off
+        paddingBottom: 20,
     },
     headerText: {
         fontSize: 20,
