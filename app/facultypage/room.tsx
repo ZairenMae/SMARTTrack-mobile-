@@ -240,7 +240,6 @@ const Room = () => {
                     onPress={() => setModalVisible(true)}
                     style={styles.createButton}
                 >
-                    <View style={styles.dash}></View>
                     <Text style={styles.createRoom}>CREATE ROOM +</Text>
                 </TouchableOpacity>
             </View>
@@ -471,13 +470,10 @@ const styles = StyleSheet.create({
         height: "100%",
         justifyContent: "center",
         alignItems: "center",
-    },
-    dash: {
-        width: "100%",
-        height: "100%",
+        marginTop: 20,
         backgroundColor: "white",
         borderRadius: 16,
-        borderWidth: 16,
+        borderWidth: 10,
         borderColor: "#A0A0A0",
         borderStyle: "dashed",
     },

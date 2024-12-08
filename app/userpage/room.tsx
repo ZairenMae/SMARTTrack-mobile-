@@ -24,6 +24,23 @@ import { onAuthStateChanged } from "firebase/auth";
 import { FIREBASE_DB, FIREBASE_AUTH } from "@/FirebaseConfig";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+interface Room {
+    id: string;
+    name: string;
+    code: string;
+    section: string;
+    startTime: number;
+    endTime: number;
+    days: string[];
+    students: Student[];
+}
+
+interface Student {
+    id: string;
+    firstName: string;
+    lastName: string;
+}
+
 const StudentRoom = () => {
     const [modalVisible, setModalVisible] = useState(false);
     const [roomCode, setRoomCode] = useState("");
@@ -31,7 +48,7 @@ const StudentRoom = () => {
     const [user, setUser] = useState<any>(null);
     const [hasPermission, setHasPermission] = useState(false);
     const [isScanning, setIsScanning] = useState(false);
-    const [joinedRooms, setJoinedRooms] = useState<any>([]);
+    const [joinedRooms, setJoinedRooms] = useState<Room[]>([]);
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(FIREBASE_AUTH, (currentUser) => {
@@ -77,6 +94,7 @@ const StudentRoom = () => {
                         const roomData = roomDoc.data();
                         const studentIds = roomData.students || [];
 
+                        // Fetch student details
                         const studentDetailsPromises = studentIds.map(
                             async (studentId: string) => {
                                 const studentDocRef = doc(
@@ -101,9 +119,15 @@ const StudentRoom = () => {
                             await Promise.all(studentDetailsPromises)
                         ).filter(Boolean);
 
+                        // Ensure the returned room data matches the Room interface
                         return {
                             id: roomDoc.id,
-                            ...roomData,
+                            name: roomData.name || "",
+                            code: roomData.code || "",
+                            section: roomData.section || "",
+                            startTime: roomData.startTime || 0,
+                            endTime: roomData.endTime || 0,
+                            days: roomData.days || [],
                             students: studentDetails,
                         };
                     })
@@ -186,26 +210,26 @@ const StudentRoom = () => {
     const handleBarCodeScanned = async ({ data }: { data: string }) => {
         setIsScanning(false);
         setRoomCode(data);
-    
+
         try {
             const userId = FIREBASE_AUTH.currentUser?.uid;
             if (!userId) {
                 Alert.alert("Error", "User not authenticated.");
                 return;
             }
-    
+
             const roomQuery = collection(FIREBASE_DB, "rooms");
             const querySnapshot = await getDocs(roomQuery);
             const matchedRoom = querySnapshot.docs.find(
                 (doc) => doc.data().code === data
             );
-    
+
             if (matchedRoom) {
                 const roomData = matchedRoom.data();
                 const roomId = matchedRoom.id;
-    
+
                 const roomDocRef = doc(FIREBASE_DB, "rooms", roomId);
-    
+
                 const updatedStudents = roomData.students || [];
                 if (!updatedStudents.includes(userId)) {
                     updatedStudents.push(userId);
@@ -215,13 +239,13 @@ const StudentRoom = () => {
                         { merge: true }
                     );
                 }
-    
+
                 setJoinedRoom({
                     id: roomId,
                     ...roomData,
                     students: updatedStudents,
                 });
-    
+
                 await AsyncStorage.setItem(
                     "@joinedRoom",
                     JSON.stringify({
@@ -230,9 +254,9 @@ const StudentRoom = () => {
                         students: updatedStudents,
                     })
                 );
-    
+
                 Alert.alert("Success", "You joined the room successfully!");
-    
+
                 // Fetch updated joined rooms after joining
                 fetchJoinedRooms(userId);
             } else {
@@ -246,7 +270,6 @@ const StudentRoom = () => {
             Alert.alert("Error", "Failed to join the room. Please try again.");
         }
     };
-    
 
     return (
         <View style={styles.container}>
@@ -255,7 +278,6 @@ const StudentRoom = () => {
                     onPress={() => setModalVisible(true)}
                     style={styles.joinButton}
                 >
-                    <View style={styles.dash}></View>
                     <Text style={styles.joinRoomText}>JOIN ROOM +</Text>
                 </TouchableOpacity>
             </View>
@@ -280,7 +302,9 @@ const StudentRoom = () => {
                                 Code: {room.id}
                             </Text>
                             <TouchableOpacity
-                                onPress={() => Clipboard.setStringAsync(room.id)}
+                                onPress={() =>
+                                    Clipboard.setStringAsync(room.id)
+                                }
                             >
                                 <MaterialIcons
                                     name="content-copy"
@@ -364,7 +388,7 @@ const styles = StyleSheet.create({
         backgroundColor: "#F9F9F9",
         overflow: "scroll",
         paddingBottom: 100,
-        paddingTop: 50,
+        paddingTop: 20,
     },
     joinRoom: {
         width: 320,
@@ -377,13 +401,9 @@ const styles = StyleSheet.create({
         height: "100%",
         justifyContent: "center",
         alignItems: "center",
-    },
-    dash: {
-        width: "100%",
-        height: "100%",
         backgroundColor: "white",
         borderRadius: 16,
-        borderWidth: 16,
+        borderWidth: 10,
         borderColor: "#A0A0A0",
         borderStyle: "dashed",
     },
