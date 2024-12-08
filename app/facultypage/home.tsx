@@ -28,7 +28,13 @@ interface Room {
     startTime: number;
     endTime: number;
     days: string[];
-    students: string[];
+    students: Student[];
+}
+
+interface Student {
+    id: string;
+    firstName: string;
+    lastName: string;
 }
 
 const Home = () => {
