@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { Component } from "react";
 import {
     View,
     Text,
@@ -10,6 +10,7 @@ import {
     Modal,
 } from "react-native";
 import { Picker } from "@react-native-picker/picker";
+
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import {
     createUserWithEmailAndPassword,
@@ -19,51 +20,68 @@ import { FIREBASE_AUTH, FIREBASE_DB } from "@/FirebaseConfig";
 import {
     doc,
     setDoc,
-    deleteDoc,
     getDoc,
     getDocs,
     query,
     collection,
     where,
 } from "firebase/firestore";
-import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const Register = () => {
-    const [showPassword, setShowPassword] = useState(false);
-    const [email, setEmail] = useState("");
-    const [password, setPassword] = useState("");
-    const [confirmPassword, setConfirmPassword] = useState("");
-    const [selectedUserType, setSelectedUserType] = useState("");
-    const [firstName, setFirstName] = useState("");
-    const [middleName, setMiddleName] = useState("");
-    const [lastName, setLastName] = useState("");
-    const [idNumber, setIdNumber] = useState("");
-    const [errorMessage, setErrorMessage] = useState("");
-    const [modalVisible, setModalVisible] = useState(false);
-    const [modalMessage, setModalMessage] = useState("");
-    const router = useRouter();
+interface RegisterState {
+    showPassword: boolean;
+    email: string;
+    password: string;
+    confirmPassword: string;
+    selectedUserType: string;
+    firstName: string;
+    middleName: string;
+    lastName: string;
+    idNumber: string;
+    modalVisible: boolean;
+    modalMessage: string;
+}
 
-    const toggleShowPassword = () => {
-        setShowPassword(!showPassword);
+class Register extends Component<{}, RegisterState> {
+    constructor(props: {}) {
+        super(props);
+        this.state = {
+            showPassword: false,
+            email: "",
+            password: "",
+            confirmPassword: "",
+            selectedUserType: "",
+            firstName: "",
+            middleName: "",
+            lastName: "",
+            idNumber: "",
+            modalVisible: false,
+            modalMessage: "",
+        };
+    }
+
+    toggleShowPassword = (): void => {
+        this.setState((prevState) => ({
+            showPassword: !prevState.showPassword,
+        }));
     };
 
-    const validateEmail = (email: string) => {
+    validateEmail = (email: string): boolean => {
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         return emailRegex.test(email);
     };
 
-    const validateIdNumber = (idNumber: string) => {
+    validateIdNumber = (idNumber: string): boolean => {
         const idNumberRegex = /^\d{2}-\d{4}-\d{3}$/;
         return idNumberRegex.test(idNumber);
     };
 
-    const validatePassword = (password: string) => {
+    validatePassword = (password: string): boolean => {
         const passwordRegex = /^(?=.*[A-Z]).{8,}$/;
         return passwordRegex.test(password);
     };
 
-    const checkIfUserExists = async (idNumber: string, email: string) => {
+    checkIfUserExists = async (idNumber: string, email: string): Promise<boolean> => {
         const userRef = doc(FIREBASE_DB, "users", idNumber);
         const userDoc = await getDoc(userRef);
         return (
@@ -79,7 +97,18 @@ const Register = () => {
         );
     };
 
-    const handleRegister = async () => {
+    handleRegister = async (): Promise<void> => {
+        const {
+            email,
+            password,
+            confirmPassword,
+            selectedUserType,
+            firstName,
+            middleName,
+            lastName,
+            idNumber,
+        } = this.state;
+
         if (
             !email ||
             !password ||
@@ -89,51 +118,40 @@ const Register = () => {
             !lastName ||
             !idNumber
         ) {
-            setModalMessage("Please fill in all fields.");
-            setModalVisible(true);
+            this.setModal("Please fill in all fields.");
             return;
         }
 
-        if (!validateEmail(email)) {
-            setModalMessage("Please enter a valid email.");
-            setModalVisible(true);
+        if (!this.validateEmail(email)) {
+            this.setModal("Please enter a valid email.");
             return;
         }
 
-        if (!validateIdNumber(idNumber)) {
-            setModalMessage(
-                "Please enter a valid ID number (e.g., 12-3456-789)."
-            );
-            setModalVisible(true);
+        if (!this.validateIdNumber(idNumber)) {
+            this.setModal("Please enter a valid ID number (e.g., 12-3456-789).");
             return;
         }
 
-        if (!validatePassword(password)) {
-            setModalMessage(
+        if (!this.validatePassword(password)) {
+            this.setModal(
                 "Password must be at least 8 characters long and contain at least one uppercase letter."
             );
-            setModalVisible(true);
             return;
         }
 
         if (password !== confirmPassword) {
-            setModalMessage("Passwords do not match.");
-            setModalVisible(true);
+            this.setModal("Passwords do not match.");
             return;
         }
 
         if (!email.endsWith("@cit.edu")) {
-            setModalMessage("Email must be a valid @cit.edu address.");
-            setModalVisible(true);
+            this.setModal("Email must be a valid @cit.edu address.");
             return;
         }
 
-        const userExists = await checkIfUserExists(idNumber, email);
+        const userExists = await this.checkIfUserExists(idNumber, email);
         if (userExists) {
-            setModalMessage(
-                "This ID number or email address is already registered."
-            );
-            setModalVisible(true);
+            this.setModal("This ID number or email address is already registered.");
             return;
         }
 
@@ -143,13 +161,11 @@ const Register = () => {
                 email,
                 password
             );
-            console.log("User registered:", userCredential.user);
 
             // Send email verification
             await sendEmailVerification(userCredential.user);
-            console.log("Verification email sent.");
 
-            // Store user data in Firestore (ensure not to store passwords in plain text)
+            // Store user data in Firestore
             await setDoc(doc(FIREBASE_DB, "users", userCredential.user.uid), {
                 uid: userCredential.user.uid,
                 email,
@@ -170,172 +186,182 @@ const Register = () => {
                     email: email,
                 })
             );
-            console.log("User data stored in AsyncStorage");
 
-            console.log("User added to Firestore");
-            setModalMessage("Registration successful!");
-            setModalVisible(true);
+            this.setModal("Registration successful!");
 
-            if (selectedUserType === "teacher") {
-                router.push("/facultypage/home");
-            } else {
-                router.push("/userpage/home");
-            }
-        } catch (error) {
-            console.error("Error registering user:", error);
-            setModalMessage(
-                (error as any).message ||
-                    "An error occurred during registration."
-            );
-            setModalVisible(true);
+            // Navigate based on user type
+            // Note: Navigation logic needs to be implemented.
+        } catch (error: any) {
+            this.setModal(error.message || "An error occurred during registration.");
         }
     };
 
-    const deleteUserFromFirestore = async (uid: string) => {
-        try {
-            await deleteDoc(doc(FIREBASE_DB, "users", uid));
-            console.log("User deleted from Firestore");
-        } catch (error) {
-            console.error("Error deleting user from Firestore:", error);
-        }
+    setModal = (message: string): void => {
+        this.setState({
+            modalMessage: message,
+            modalVisible: true,
+        });
     };
 
-    return (
-        <ScrollView contentContainerStyle={styles.container}>
-            <ImageBackground
-                source={require("../../assets/images/logo.png")}
-                style={styles.backgroundImage}
-                resizeMode="cover"
-            >
-                <View style={styles.formContainer}>
-                    <Text style={styles.title}>REGISTRATION</Text>
+    closeModal = (): void => {
+        this.setState({
+            modalVisible: false,
+        });
+    };
 
-                    <TextInput
-                        style={styles.input}
-                        placeholder="Email"
-                        placeholderTextColor="#999"
-                        keyboardType="email-address"
-                        value={email}
-                        onChangeText={setEmail}
-                    />
-
-                    <View style={styles.nameContainer}>
-                        <TextInput
-                            style={[styles.input, styles.nameInput]}
-                            placeholder="Firstname"
-                            placeholderTextColor="#999"
-                            value={firstName}
-                            onChangeText={setFirstName}
-                        />
-                        <TextInput
-                            style={[styles.input, styles.nameInput]}
-                            placeholder="ML"
-                            placeholderTextColor="#999"
-                            value={middleName}
-                            onChangeText={setMiddleName}
-                        />
-                        <TextInput
-                            style={[styles.input, styles.nameInput]}
-                            placeholder="Lastname"
-                            placeholderTextColor="#999"
-                            value={lastName}
-                            onChangeText={setLastName}
-                        />
-                    </View>
-
-                    <TextInput
-                        style={styles.input}
-                        placeholder="ID Number"
-                        placeholderTextColor="#999"
-                        keyboardType="numeric"
-                        value={idNumber}
-                        onChangeText={setIdNumber}
-                    />
-
-                    <View style={styles.passwordContainer}>
+    render() {
+        const {
+            showPassword,
+            email,
+            password,
+            confirmPassword,
+            selectedUserType,
+            firstName,
+            middleName,
+            lastName,
+            idNumber,
+            modalVisible,
+            modalMessage,
+        } = this.state;
+    
+        return (
+            <ScrollView contentContainerStyle={styles.container}>
+                <ImageBackground
+                    source={require("../../assets/images/logo.png")}
+                    style={styles.backgroundImage}
+                    resizeMode="cover"
+                >
+                    <View style={styles.formContainer}>
+                        <Text style={styles.title}>REGISTRATION</Text>
+                        
+                        {/* Email Input */}
                         <TextInput
                             style={styles.input}
-                            placeholder="Password"
+                            placeholder="Email"
                             placeholderTextColor="#999"
-                            secureTextEntry={!showPassword}
-                            value={password}
-                            onChangeText={setPassword}
+                            keyboardType="email-address"
+                            value={email}
+                            onChangeText={(text) => this.setState({ email: text })}
                         />
-                        <MaterialCommunityIcons
-                            name={showPassword ? "eye-off" : "eye"}
-                            size={24}
-                            color="#aaa"
-                            style={styles.icon}
-                            onPress={toggleShowPassword}
-                        />
-                    </View>
-
-                    <View style={styles.passwordContainer}>
-                        <TextInput
-                            style={styles.input}
-                            placeholder="Confirm Password"
-                            placeholderTextColor="#999"
-                            secureTextEntry={!showPassword}
-                            value={confirmPassword}
-                            onChangeText={setConfirmPassword}
-                        />
-                        <MaterialCommunityIcons
-                            name={showPassword ? "eye-off" : "eye"}
-                            size={24}
-                            color="#aaa"
-                            style={styles.icon}
-                            onPress={toggleShowPassword}
-                        />
-                    </View>
-
-                    <View style={styles.pickerContainer}>
-                        <Picker
-                            selectedValue={selectedUserType}
-                            onValueChange={(itemValue) =>
-                                setSelectedUserType(itemValue)
-                            }
-                            style={styles.picker}
-                        >
-                            <Picker.Item label="Select User Type" value="" />
-                            <Picker.Item
-                                label="Teacher/Faculty"
-                                value="pending"
+    
+                        {/* Name Inputs */}
+                        <View style={styles.nameContainer}>
+                            <TextInput
+                                style={[styles.input, styles.nameInput]}
+                                placeholder="First Name"
+                                placeholderTextColor="#999"
+                                value={firstName}
+                                onChangeText={(text) => this.setState({ firstName: text })}
                             />
-                            <Picker.Item label="Student" value="student" />
-                        </Picker>
-                    </View>
-
-                    <TouchableOpacity
-                        style={styles.button}
-                        onPress={handleRegister}
-                    >
-                        <Text style={styles.buttonText}>SIGN UP</Text>
-                    </TouchableOpacity>
-                </View>
-            </ImageBackground>
-
-            {/* Modal for displaying messages */}
-            <Modal
-                transparent={true}
-                visible={modalVisible}
-                animationType="fade"
-                onRequestClose={() => setModalVisible(false)}
-            >
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
-                        <Text style={styles.modalText}>{modalMessage}</Text>
+                            <TextInput
+                                style={[styles.input, styles.nameInput]}
+                                placeholder="Middle Name"
+                                placeholderTextColor="#999"
+                                value={middleName}
+                                onChangeText={(text) => this.setState({ middleName: text })}
+                            />
+                            <TextInput
+                                style={[styles.input, styles.nameInput]}
+                                placeholder="Last Name"
+                                placeholderTextColor="#999"
+                                value={lastName}
+                                onChangeText={(text) => this.setState({ lastName: text })}
+                            />
+                        </View>
+    
+                        {/* ID Number Input */}
+                        <TextInput
+                            style={styles.input}
+                            placeholder="ID Number"
+                            placeholderTextColor="#999"
+                            keyboardType="numeric"
+                            value={idNumber}
+                            onChangeText={(text) => this.setState({ idNumber: text })}
+                        />
+    
+                        {/* Password Input */}
+                        <View style={styles.passwordContainer}>
+                            <TextInput
+                                style={styles.input}
+                                placeholder="Password"
+                                placeholderTextColor="#999"
+                                secureTextEntry={!showPassword}
+                                value={password}
+                                onChangeText={(text) => this.setState({ password: text })}
+                            />
+                            <MaterialCommunityIcons
+                                name={showPassword ? "eye-off" : "eye"}
+                                size={24}
+                                color="#aaa"
+                                style={styles.icon}
+                                onPress={this.toggleShowPassword}
+                            />
+                        </View>
+    
+                        {/* Confirm Password Input */}
+                        <View style={styles.passwordContainer}>
+                            <TextInput
+                                style={styles.input}
+                                placeholder="Confirm Password"
+                                placeholderTextColor="#999"
+                                secureTextEntry={!showPassword}
+                                value={confirmPassword}
+                                onChangeText={(text) => this.setState({ confirmPassword: text })}
+                            />
+                            <MaterialCommunityIcons
+                                name={showPassword ? "eye-off" : "eye"}
+                                size={24}
+                                color="#aaa"
+                                style={styles.icon}
+                                onPress={this.toggleShowPassword}
+                            />
+                        </View>
+    
+                        {/* User Type Picker */}
+                        <View style={styles.pickerContainer}>
+                            <Picker
+                                selectedValue={selectedUserType}
+                                onValueChange={(itemValue) =>
+                                    this.setState({ selectedUserType: itemValue })
+                                }
+                                style={styles.picker}
+                            >
+                                <Picker.Item label="Select User Type" value="" />
+                                <Picker.Item label="Teacher/Faculty" value="teacher" />
+                                <Picker.Item label="Student" value="student" />
+                            </Picker>
+                        </View>
+    
+                        {/* Register Button */}
                         <TouchableOpacity
-                            onPress={() => setModalVisible(false)}
-                            style={styles.modalButton}
+                            style={styles.button}
+                            onPress={this.handleRegister}
                         >
-                            <Text style={styles.modalButtonText}>OK</Text>
+                            <Text style={styles.buttonText}>SIGN UP</Text>
                         </TouchableOpacity>
                     </View>
-                </View>
-            </Modal>
-        </ScrollView>
-    );
-};
+                </ImageBackground>
+    
+                {/* Modal for messages */}
+                <Modal transparent={true} visible={modalVisible} onRequestClose={this.closeModal}>
+                    <View style={styles.modalOverlay}>
+                        <View style={styles.modalContent}>
+                            <Text style={styles.modalText}>{modalMessage}</Text>
+                            <TouchableOpacity
+                                onPress={this.closeModal}
+                                style={styles.modalButton}
+                            >
+                                <Text style={styles.modalButtonText}>OK</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </Modal>
+            </ScrollView>
+        );
+    }
+    
+}
+
 
 const styles = StyleSheet.create({
     container: {
