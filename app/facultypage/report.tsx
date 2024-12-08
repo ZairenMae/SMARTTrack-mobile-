@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react";
-import { StyleSheet, View, Text, TouchableOpacity } from "react-native";
+import React, { Component } from "react";
+import { StyleSheet, View, Text, TouchableOpacity, ScrollView } from "react-native";
 import { FIREBASE_DB } from "@/FirebaseConfig";
 import { collection, onSnapshot } from "firebase/firestore";
 import ModalComponent from "../../components/modal/Modal";
@@ -13,15 +13,35 @@ interface User {
     status: string;
 }
 
-const DashboardReport = () => {
-    const [leaderboard, setLeaderboard] = useState<User[]>([]);
-    const [modalVisible, setModalVisible] = useState(false); // Modal state
+interface DashboardReportState {
+    leaderboard: User[];
+    modalVisible: boolean;
+}
 
-    useEffect(() => {
-        const unsubscribe = onSnapshot(
+class DashboardReport extends Component<{}, DashboardReportState> {
+    private unsubscribe: (() => void) | null = null;
+
+    constructor(props: {}) {
+        super(props);
+        this.state = {
+            leaderboard: [],
+            modalVisible: false,
+        };
+    }
+
+    componentDidMount() {
+        this.subscribeToLeaderboard();
+    }
+
+    componentWillUnmount() {
+        this.unsubscribeFromLeaderboard();
+    }
+
+    subscribeToLeaderboard = () => {
+        this.unsubscribe = onSnapshot(
             collection(FIREBASE_DB, "earlyWorms"),
             (snapshot) => {
-                const users = snapshot.docs.map((doc) => {
+                const users: User[] = snapshot.docs.map((doc) => {
                     const data = doc.data();
                     return {
                         userName: data.userName || "No Name",
@@ -41,79 +61,31 @@ const DashboardReport = () => {
                         new Date(`1970-01-01T${b.checkInTime}`).getTime()
                 );
 
-                setLeaderboard(sortedUsers);
+                this.setState({ leaderboard: sortedUsers });
             }
         );
+    };
 
-        return () => unsubscribe();
-    }, []);
+    unsubscribeFromLeaderboard = () => {
+        if (this.unsubscribe) {
+            this.unsubscribe();
+        }
+    };
 
-    const staticCards = [
-        {
-            title: "Early Leavers",
-            progressHeader: "Attendance",
-            progressValue: 75,
-        },
-        {
-            title: "Late Comers",
-            progressHeader: "Attendance",
-            progressValue: 60,
-        },
-        {
-            title: "Daily Attendance",
-            progressHeader: "Attendance",
-            progressValue: 85,
-        },
-        {
-            title: "Monthly Attendance",
-            progressHeader: "Attendance",
-            progressValue: 95,
-        },
-    ];
+    toggleModal = () => {
+        this.setState((prevState) => ({
+            modalVisible: !prevState.modalVisible,
+        }));
+    };
 
-    return (
-        <View style={styles.dashboardReport}>
-            <Text style={styles.headerText}>Dashboard Report</Text>
-            <View style={styles.cardContainer}>
-                {/* Dynamic Early Worms Card */}
-                {leaderboard.length > 0 ? (
-                    <TouchableOpacity
-                        style={styles.card}
-                        onPress={() => setModalVisible(true)} // Open modal on press
-                    >
-                        <Text style={styles.cardTitle}>Early Worms</Text>
-                        <View style={styles.infoContainer}>
-                            <Text style={styles.progressHeader}>Name</Text>
-                            <Text style={styles.progressValue}>
-                                {leaderboard[0].userName}
-                            </Text>
-                        </View>
-                    </TouchableOpacity>
-                ) : (
-                    <Text>No Early Worms Found</Text>
-                )}
+    renderLeaderboardModal = () => {
+        const { leaderboard, modalVisible } = this.state;
 
-                {/* Static Cards */}
-                {staticCards.map((card, index) => (
-                    <View key={index} style={styles.card}>
-                        <Text style={styles.cardTitle}>{card.title}</Text>
-                        <View style={styles.infoContainer}>
-                            <Text style={styles.progressHeader}>
-                                {card.progressHeader}
-                            </Text>
-                            <Text style={styles.progressValue}>
-                                {card.progressValue}%
-                            </Text>
-                        </View>
-                    </View>
-                ))}
-            </View>
-
-            {/* Modal for Leaderboard */}
-            {leaderboard.length > 0 && (
+        return (
+            leaderboard.length > 0 && (
                 <ModalComponent
                     visible={modalVisible}
-                    onClose={() => setModalVisible(false)}
+                    onClose={this.toggleModal}
                     title="Early Worm Leaderboard"
                     message={leaderboard
                         .map(
@@ -128,18 +100,97 @@ const DashboardReport = () => {
                     buttons={[
                         {
                             text: "Close",
-                            action: () => setModalVisible(false),
+                            action: this.toggleModal,
                             color: "gray",
                         },
                     ]}
                     onPress={() => {}}
                 />
-            )}
-        </View>
-    );
-};
+            )
+        );
+    };
+
+    renderStaticCards = () => {
+        const staticCards = [
+            {
+                title: "Early Leavers",
+                progressHeader: "Attendance",
+                progressValue: 75,
+            },
+            {
+                title: "Late Comers",
+                progressHeader: "Attendance",
+                progressValue: 60,
+            },
+            {
+                title: "Daily Attendance",
+                progressHeader: "Attendance",
+                progressValue: 85,
+            },
+            {
+                title: "Monthly Attendance",
+                progressHeader: "Attendance",
+                progressValue: 95,
+            },
+        ];
+
+        return staticCards.map((card, index) => (
+            <View key={index} style={styles.card}>
+                <Text style={styles.cardTitle}>{card.title}</Text>
+                <View style={styles.infoContainer}>
+                    <Text style={styles.progressHeader}>
+                        {card.progressHeader}
+                    </Text>
+                    <Text style={styles.progressValue}>
+                        {card.progressValue}%
+                    </Text>
+                </View>
+            </View>
+        ));
+    };
+
+    render() {
+        const { leaderboard } = this.state;
+
+        return (
+            <ScrollView contentContainerStyle={styles.scrollContainer}>
+                <View style={styles.dashboardReport}>
+                    <Text style={styles.headerText}>Dashboard Report</Text>
+                    <View style={styles.cardContainer}>
+                        {/* Dynamic Early Worms Card */}
+                        {leaderboard.length > 0 ? (
+                            <TouchableOpacity
+                                style={styles.card}
+                                onPress={this.toggleModal}
+                            >
+                                <Text style={styles.cardTitle}>Early Worms</Text>
+                                <View style={styles.infoContainer}>
+                                    <Text style={styles.progressHeader}>Name</Text>
+                                    <Text style={styles.progressValue}>
+                                        {leaderboard[0].userName}
+                                    </Text>
+                                </View>
+                            </TouchableOpacity>
+                        ) : (
+                            <Text>No Early Worms Found</Text>
+                        )}
+
+                        {/* Static Cards */}
+                        {this.renderStaticCards()}
+                    </View>
+
+                    {/* Modal for Leaderboard */}
+                    {this.renderLeaderboardModal()}
+                </View>
+            </ScrollView>
+        );
+    }
+}
 
 const styles = StyleSheet.create({
+    scrollContainer: {
+        flexGrow: 1,
+    },
     dashboardReport: {
         flex: 1,
         backgroundColor: "#fff",
