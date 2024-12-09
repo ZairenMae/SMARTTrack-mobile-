@@ -45,7 +45,7 @@ const Home = () => {
 
     const { address, error } = useViewLocation();
 
-    const fetchCurrentUser = () => {
+    const fetchCurrentUser =async () => {
         const auth = getAuth();
         const currentUser = auth.currentUser;
         if (currentUser) {
