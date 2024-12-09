@@ -69,7 +69,7 @@ export default class Login extends Component<{}, LoginState> {
         try {
             let email: string;
     
-            // Check if input is an email
+            // Determine if input is an email
             if (idNumber.includes("@")) {
                 email = idNumber;
             } else {
@@ -117,13 +117,14 @@ export default class Login extends Component<{}, LoginState> {
             if (!userSnapshot.empty) {
                 const userData = userSnapshot.docs[0].data();
                 const userType = userData.userType;
+                const uid = userData.uid; // Get the user's UID
     
                 if (userType === "teacher") {
                     console.log("Redirecting to Teacher Dashboard");
-                    window.location.pathname = "/facultypage/home"; // Relative path for teacher dashboard
+                    window.location.href = `/facultypage/home?uid=${encodeURIComponent(uid)}`;
                 } else if (userType === "student") {
                     console.log("Redirecting to Student Dashboard");
-                    window.location.pathname = "/userpage/home"; // Relative path for student dashboard
+                    window.location.href = `/userpage/home?uid=${encodeURIComponent(uid)}`;
                 } else {
                     this.showModal("Unknown user type.");
                 }
@@ -137,6 +138,7 @@ export default class Login extends Component<{}, LoginState> {
             this.setState({ loading: false });
         }
     };
+    
     
     handleForgotPassword = async (): Promise<void> => {
         const { resetEmail } = this.state;
