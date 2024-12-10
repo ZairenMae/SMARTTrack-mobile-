@@ -14,6 +14,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { FIREBASE_AUTH, FIREBASE_DB } from "@/FirebaseConfig";
 import { doc, getDoc } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
+import { useRouter } from "expo-router";
 
 const SideBar = ({ navigation }: any) => {
     const [userData, setUserData] = useState({
@@ -21,6 +22,8 @@ const SideBar = ({ navigation }: any) => {
         studentId: "",
     });
     const [loading, setLoading] = useState(true); // Track loading state
+
+    const router = useRouter();
 
     // Fetch user data from Firestore and save it locally
     const fetchUserData = async (uid: string) => {
@@ -140,29 +143,23 @@ const SideBar = ({ navigation }: any) => {
 
             {/* Logout Button */}
             <TouchableOpacity
-                style={styles.logoutButton}
-                onPress={async () => {
+                    style={styles.logoutButton}
+                    onPress={async () => {
                     try {
-                        // Sign out the user from Firebase
                         await FIREBASE_AUTH.signOut();
-
-                        // Clear locally cached user data
                         await AsyncStorage.clear();
-
                         console.log("User logged out successfully");
-
-                        // Redirect to Login screen
-                        navigation.replace("/auth/login"); // Ensure this path matches your navigation setup
+                        router.replace("/auth/login");
                     } catch (error) {
                         console.error("Error during logout:", error);
                     }
-                }}
-            >
-                <Text style={styles.logoutText}>Logout</Text>
-            </TouchableOpacity>
-        </View>
-    );
-};
+                    }}
+                >
+                    <Text style={styles.logoutText}>Logout</Text>
+                </TouchableOpacity>
+                        </View>
+                    );
+                };
 
 const styles = StyleSheet.create({
     sidebarContainer: {

@@ -7,6 +7,7 @@ import {
     TextInput,
     TouchableOpacity,
     Alert,
+    ScrollView,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { BarCodeScanner } from "expo-barcode-scanner";
@@ -23,6 +24,13 @@ import {
 import { onAuthStateChanged } from "firebase/auth";
 import { FIREBASE_DB, FIREBASE_AUTH } from "@/FirebaseConfig";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import CardRoom from "../../components/cards/CardRoom";
+
+interface Student {
+    id: string;
+    firstName: string;
+    lastName: string;
+}
 
 interface Room {
     id: string;
@@ -33,12 +41,8 @@ interface Room {
     endTime: number;
     days: string[];
     students: Student[];
-}
-
-interface Student {
-    id: string;
-    firstName: string;
-    lastName: string;
+    teacherId?: string;
+    teacherName?: string;
 }
 
 const StudentRoom = () => {
@@ -49,6 +53,7 @@ const StudentRoom = () => {
     const [hasPermission, setHasPermission] = useState(false);
     const [isScanning, setIsScanning] = useState(false);
     const [joinedRooms, setJoinedRooms] = useState<Room[]>([]);
+    const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(FIREBASE_AUTH, (currentUser) => {
@@ -79,6 +84,24 @@ const StudentRoom = () => {
         requestCameraPermission();
     }, []);
 
+    const fetchTeacherName = async (teacherUid: string): Promise<string> => {
+        try {
+            const teacherDocRef = doc(FIREBASE_DB, "users", teacherUid);
+            const teacherSnap = await getDoc(teacherDocRef);
+            if (teacherSnap.exists()) {
+                const data = teacherSnap.data();
+                if (data.userType === "teacher") {
+                    const firstName = data.firstName || "";
+                    const lastName = data.lastName || "";
+                    return `${firstName} ${lastName}`.trim();
+                }
+            }
+        } catch (error) {
+            console.error("Error fetching teacher data:", error);
+        }
+        return "Unknown Teacher";
+    };
+
     const fetchJoinedRooms = async (userId: string) => {
         try {
             const roomsQuery = query(
@@ -102,24 +125,30 @@ const StudentRoom = () => {
                                     "users",
                                     studentId
                                 );
-                                const studentSnapshot = await getDoc(
-                                    studentDocRef
-                                );
+                                const studentSnapshot = await getDoc(studentDocRef);
 
-                                return studentSnapshot.exists()
-                                    ? {
-                                          id: studentId,
-                                          ...studentSnapshot.data(),
-                                      }
-                                    : null;
+                                if (studentSnapshot.exists()) {
+                                    const studData = studentSnapshot.data();
+                                    return {
+                                        id: studentId,
+                                        firstName: studData.firstName || "",
+                                        lastName: studData.lastName || "",
+                                    };
+                                } else {
+                                    return null;
+                                }
                             }
                         );
 
                         const studentDetails = (
                             await Promise.all(studentDetailsPromises)
-                        ).filter(Boolean);
+                        ).filter(Boolean) as Student[];
 
-                        // Ensure the returned room data matches the Room interface
+                        let teacherName = "Unknown Teacher";
+                        if (roomData.teacherId) {
+                            teacherName = await fetchTeacherName(roomData.teacherId);
+                        }
+
                         return {
                             id: roomDoc.id,
                             name: roomData.name || "",
@@ -129,6 +158,8 @@ const StudentRoom = () => {
                             endTime: roomData.endTime || 0,
                             days: roomData.days || [],
                             students: studentDetails,
+                            teacherId: roomData.teacherId || "",
+                            teacherName,
                         };
                     })
                 );
@@ -195,6 +226,9 @@ const StudentRoom = () => {
                 setModalVisible(false);
                 setRoomCode("");
                 Alert.alert("Success", "You joined the room successfully!");
+
+                // Refresh the list of joined rooms
+                fetchJoinedRooms(userId);
             } else {
                 Alert.alert(
                     "Error",
@@ -283,42 +317,25 @@ const StudentRoom = () => {
             </View>
 
             {joinedRooms.length > 0 ? (
-                joinedRooms.map((room: any) => (
+                joinedRooms.map((room: Room) => (
                     <View style={styles.roomCard} key={room.id}>
-                        <Text style={styles.roomDetailText}>
-                            Room Name: {room.name}
-                        </Text>
-                        <Text style={styles.roomDetailText}>
-                            Section: {room.section}
-                        </Text>
-                        <Text style={styles.roomDetailText}>
-                            Start Time: {room.startTime}
-                        </Text>
-                        <Text style={styles.roomDetailText}>
-                            End Time: {room.endTime}
-                        </Text>
-                        <View style={styles.roomCodeContainer}>
-                            <Text style={styles.roomCodeText}>
-                                Code: {room.id}
-                            </Text>
-                            <TouchableOpacity
-                                onPress={() =>
-                                    Clipboard.setStringAsync(room.id)
-                                }
-                            >
-                                <MaterialIcons
-                                    name="content-copy"
-                                    size={24}
-                                    color="black"
-                                />
-                            </TouchableOpacity>
-                        </View>
+                        <TouchableOpacity onPress={() => setSelectedRoom(room)}>
+                            <CardRoom
+                                id={room.id}
+                                name={room.name}
+                                section={room.section}
+                                startTime={room.startTime}
+                                endTime={room.endTime}
+                                roomCode={room.code}
+                            />
+                        </TouchableOpacity>
                     </View>
                 ))
             ) : (
                 <Text>No joined rooms found.</Text>
             )}
 
+            {/* Modal for Join Room */}
             <Modal
                 visible={modalVisible}
                 transparent={true}
@@ -360,6 +377,7 @@ const StudentRoom = () => {
                 </View>
             </Modal>
 
+            {/* Modal for Scanning QR Code */}
             {isScanning && hasPermission && (
                 <Modal visible={isScanning} transparent={true}>
                     <View style={styles.barcodeScannerContainer}>
@@ -376,6 +394,54 @@ const StudentRoom = () => {
                     </View>
                 </Modal>
             )}
+
+            {/* Modal for Selected Room Details */}
+            <Modal
+                visible={selectedRoom !== null}
+                transparent={true}
+                animationType="slide"
+                onRequestClose={() => setSelectedRoom(null)}
+            >
+                <View style={styles.modalContainer}>
+                    <View style={styles.modalContent}>
+                        {selectedRoom && (
+                            <>
+                                <Text style={styles.modalTitle}>{selectedRoom.name}</Text>
+                                <Text>Section: {selectedRoom.section}</Text>
+                                <Text>Start: {new Date(selectedRoom.startTime).toLocaleTimeString([], {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                })}</Text>
+                                <Text>End: {new Date(selectedRoom.endTime).toLocaleTimeString([], {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                })}</Text>
+                                <Text style={{ fontWeight: "bold", marginTop: 10 }}>
+                                    Teacher: {selectedRoom.teacherName}
+                                </Text>
+                                <Text style={{ fontWeight: "bold", marginTop: 10 }}>Members:</Text>
+                                <ScrollView style={{ maxHeight: 200, marginVertical: 10 }}>
+                                    {selectedRoom.students && selectedRoom.students.length > 0 ? (
+                                        selectedRoom.students.map((student) => (
+                                            <Text key={student.id}>
+                                                {student.firstName} {student.lastName}
+                                            </Text>
+                                        ))
+                                    ) : (
+                                        <Text>No classmates found.</Text>
+                                    )}
+                                </ScrollView>
+                                <TouchableOpacity
+                                    style={[styles.button, styles.cancelButton, { marginTop: 20 }]}
+                                    onPress={() => setSelectedRoom(null)}
+                                >
+                                    <Text style={styles.buttonText}>CLOSE</Text>
+                                </TouchableOpacity>
+                            </>
+                        )}
+                    </View>
+                </View>
+            </Modal>
         </View>
     );
 };
@@ -487,29 +553,9 @@ const styles = StyleSheet.create({
     },
     roomCard: {
         marginTop: 20,
-        padding: 10,
-        backgroundColor: "#fff",
-        borderRadius: 10,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.2,
-        shadowRadius: 5,
-        elevation: 3,
-        width: "90%",
-    },
-    roomDetailText: {
-        fontSize: 16,
-        marginBottom: 5,
-    },
-    roomCodeContainer: {
-        flexDirection: "row",
+        marginBottom: 10,
         alignItems: "center",
-        marginTop: 10,
-    },
-    roomCodeText: {
-        fontSize: 16,
-        fontWeight: "bold",
-        flex: 1,
+        width: "90%",
     },
     buttonText: {
         color: "#fff",
