@@ -14,11 +14,11 @@ import { collection, getDocs } from "firebase/firestore";
 import { FIREBASE_DB as db } from "@/FirebaseConfig";
 import * as Notifications from "expo-notifications";
 
-interface Event {
-    id: string;
-    date: string;
-    title: string;
-    location: string;
+class Event {
+    id!: string;
+    date!: string;
+    title!: string;
+    location!: string;
     description?: string;
     students?: string;
     notify?: boolean;
@@ -109,7 +109,9 @@ class StudentSchedule extends Component<{}, StudentScheduleState> {
                 console.error("Error scheduling notification:", error);
             }
         } else {
-            console.log("Web platform - notification scheduling is not supported.");
+            console.log(
+                "Web platform - notification scheduling is not supported."
+            );
         }
     };
 
@@ -125,7 +127,10 @@ class StudentSchedule extends Component<{}, StudentScheduleState> {
 
     handleSelectMonth = (month: { year: number; month: number }) => {
         this.setState({
-            selectedMonth: `${month.year}-${String(month.month).padStart(2, "0")}`,
+            selectedMonth: `${month.year}-${String(month.month).padStart(
+                2,
+                "0"
+            )}`,
         });
     };
 
@@ -151,13 +156,17 @@ class StudentSchedule extends Component<{}, StudentScheduleState> {
                         <Text style={styles.eventTime}>
                             {event.wholeDay
                                 ? "ALL DAY"
-                                : `${event.startTime || "N/A"} - ${event.endTime || "N/A"}`}
+                                : `${event.startTime || "N/A"} - ${
+                                      event.endTime || "N/A"
+                                  }`}
                         </Text>
                     </View>
                     <View style={styles.eventDetails}>
                         <View style={styles.eventTextContainer}>
                             <Text style={styles.eventTitle}>{event.title}</Text>
-                            <Text style={styles.eventLocation}>{event.location}</Text>
+                            <Text style={styles.eventLocation}>
+                                {event.location}
+                            </Text>
                         </View>
                     </View>
                 </View>
@@ -169,7 +178,10 @@ class StudentSchedule extends Component<{}, StudentScheduleState> {
         const { selectedDate, selectedEvent } = this.state;
 
         const markedDates = this.state.events.reduce(
-            (acc: Record<string, { marked: boolean; dotColor: string }>, event) => {
+            (
+                acc: Record<string, { marked: boolean; dotColor: string }>,
+                event
+            ) => {
                 acc[event.date] = { marked: true, dotColor: "#FFD700" };
                 return acc;
             },
@@ -183,7 +195,10 @@ class StudentSchedule extends Component<{}, StudentScheduleState> {
                     onMonthChange={this.handleSelectMonth}
                     markedDates={{
                         ...markedDates,
-                        [selectedDate]: { selected: true, selectedColor: "#800000" },
+                        [selectedDate]: {
+                            selected: true,
+                            selectedColor: "#800000",
+                        },
                     }}
                     theme={{
                         selectedDayBackgroundColor: "#800000",
@@ -216,16 +231,24 @@ class StudentSchedule extends Component<{}, StudentScheduleState> {
                                     Time:{" "}
                                     {selectedEvent.wholeDay
                                         ? "8:00 AM - 5:00 PM"
-                                        : `${selectedEvent.startTime || "N/A"} - ${selectedEvent.endTime || "N/A"}`}
+                                        : `${
+                                              selectedEvent.startTime || "N/A"
+                                          } - ${
+                                              selectedEvent.endTime || "N/A"
+                                          }`}
                                 </Text>
                                 <Text style={styles.modalText}>
                                     Location: {selectedEvent.location}
                                 </Text>
                                 <Text style={styles.modalText}>
                                     Description:{" "}
-                                    {selectedEvent.description || "No description available"}
+                                    {selectedEvent.description ||
+                                        "No description available"}
                                 </Text>
-                                <Button title="Close" onPress={this.handleCloseModal} />
+                                <Button
+                                    title="Close"
+                                    onPress={this.handleCloseModal}
+                                />
                             </View>
                         </View>
                     </Modal>

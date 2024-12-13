@@ -26,10 +26,16 @@ import { FIREBASE_DB, FIREBASE_AUTH } from "@/FirebaseConfig";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import CardRoom from "../../components/cards/CardRoom";
 
-interface Student {
+class Student {
     id: string;
     firstName: string;
     lastName: string;
+
+    constructor(id: string, firstName: string, lastName: string) {
+        this.id = id;
+        this.firstName = firstName;
+        this.lastName = lastName;
+    }
 }
 
 interface Room {
@@ -125,7 +131,9 @@ const StudentRoom = () => {
                                     "users",
                                     studentId
                                 );
-                                const studentSnapshot = await getDoc(studentDocRef);
+                                const studentSnapshot = await getDoc(
+                                    studentDocRef
+                                );
 
                                 if (studentSnapshot.exists()) {
                                     const studData = studentSnapshot.data();
@@ -146,7 +154,9 @@ const StudentRoom = () => {
 
                         let teacherName = "Unknown Teacher";
                         if (roomData.teacherId) {
-                            teacherName = await fetchTeacherName(roomData.teacherId);
+                            teacherName = await fetchTeacherName(
+                                roomData.teacherId
+                            );
                         }
 
                         return {
@@ -406,25 +416,56 @@ const StudentRoom = () => {
                     <View style={styles.modalContent}>
                         {selectedRoom && (
                             <>
-                                <Text style={styles.modalTitle}>{selectedRoom.name}</Text>
+                                <Text style={styles.modalTitle}>
+                                    {selectedRoom.name}
+                                </Text>
                                 <Text>Section: {selectedRoom.section}</Text>
-                                <Text>Start: {new Date(selectedRoom.startTime).toLocaleTimeString([], {
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                })}</Text>
-                                <Text>End: {new Date(selectedRoom.endTime).toLocaleTimeString([], {
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                })}</Text>
-                                <Text style={{ fontWeight: "bold", marginTop: 10 }}>
+                                <Text>
+                                    Start:{" "}
+                                    {new Date(
+                                        selectedRoom.startTime
+                                    ).toLocaleTimeString([], {
+                                        hour: "2-digit",
+                                        minute: "2-digit",
+                                    })}
+                                </Text>
+                                <Text>
+                                    End:{" "}
+                                    {new Date(
+                                        selectedRoom.endTime
+                                    ).toLocaleTimeString([], {
+                                        hour: "2-digit",
+                                        minute: "2-digit",
+                                    })}
+                                </Text>
+                                <Text
+                                    style={{
+                                        fontWeight: "bold",
+                                        marginTop: 10,
+                                    }}
+                                >
                                     Teacher: {selectedRoom.teacherName}
                                 </Text>
-                                <Text style={{ fontWeight: "bold", marginTop: 10 }}>Members:</Text>
-                                <ScrollView style={{ maxHeight: 200, marginVertical: 10 }}>
-                                    {selectedRoom.students && selectedRoom.students.length > 0 ? (
+                                <Text
+                                    style={{
+                                        fontWeight: "bold",
+                                        marginTop: 10,
+                                    }}
+                                >
+                                    Members:
+                                </Text>
+                                <ScrollView
+                                    style={{
+                                        maxHeight: 200,
+                                        marginVertical: 10,
+                                    }}
+                                >
+                                    {selectedRoom.students &&
+                                    selectedRoom.students.length > 0 ? (
                                         selectedRoom.students.map((student) => (
                                             <Text key={student.id}>
-                                                {student.firstName} {student.lastName}
+                                                {student.firstName}{" "}
+                                                {student.lastName}
                                             </Text>
                                         ))
                                     ) : (
@@ -432,7 +473,11 @@ const StudentRoom = () => {
                                     )}
                                 </ScrollView>
                                 <TouchableOpacity
-                                    style={[styles.button, styles.cancelButton, { marginTop: 20 }]}
+                                    style={[
+                                        styles.button,
+                                        styles.cancelButton,
+                                        { marginTop: 20 },
+                                    ]}
                                     onPress={() => setSelectedRoom(null)}
                                 >
                                     <Text style={styles.buttonText}>CLOSE</Text>
