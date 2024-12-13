@@ -6,6 +6,7 @@ import {
     Alert,
     FlatList,
     TouchableOpacity,
+    ScrollView,
 } from "react-native";
 import React, { useState, useEffect } from "react";
 import CardRoom from "@/components/cards/CardRoom";
@@ -19,42 +20,27 @@ import {
 } from "firebase/firestore"; // Add getDocs
 import { FIREBASE_DB } from "@/FirebaseConfig";
 
+class Users {
+    uid: string;
+    email: string;
+    firstName: string;
+    idNumber: string;
+    lastName: string;
+    middleName: string;
+    userType: string;
+
+    constructor() {
+        this.uid = "";
+        this.email = "";
+        this.firstName = "";
+        this.idNumber = "";
+        this.lastName = "";
+        this.middleName = "";
+        this.userType = "";
+    }
+}
 const Home = () => {
-    const [teachers, setTeachers] = useState<
-        {
-            uid: string;
-            email: string;
-            firstName: string;
-            idNumber: string;
-            lastName: string;
-            middleName: string;
-            userType: string;
-        }[]
-    >([]);
-
-    // const fetchTeachers = async () => {
-    //     try {
-    //         const querySnapshot = await getDocs(
-    //             collection(FIREBASE_DB, "users")
-    //         );
-    //         const fetchedTeachers = querySnapshot.docs
-    //             .map((doc) => ({
-    //                 uid: doc.id,
-    //                 email: doc.data().email || "No Email",
-    //                 firstName: doc.data().firstName || "No First Name",
-    //                 idNumber: doc.data().idNumber || "No ID Number",
-    //                 lastName: doc.data().lastName || "No Last Name",
-    //                 middleName: doc.data().middleName || "No Middle Name",
-    //                 userType: doc.data().userType || "No UserType",
-    //             }))
-    //             .filter((user) => user.userType === "teacher"); // Filter for teachers
-
-    //         setTeachers(fetchedTeachers);
-    //     } catch (error) {
-    //         console.error("Error fetching teachers:", error);
-    //         Alert.alert("Error", "Failed to fetch teachers. Please try again.");
-    //     }
-    // };
+    const [users, setUsers] = useState<Users[]>([]);
 
     const fetchTeachers = async () => {
         try {
@@ -71,7 +57,7 @@ const Home = () => {
                 userType: doc.data().userType || "No UserType",
             }));
 
-            setTeachers(fetchedTeachers);
+            setUsers(fetchedTeachers);
         } catch (error) {
             console.error("Error fetching teachers:", error);
             Alert.alert("Error", "Failed to fetch users. Please try again.");
@@ -80,7 +66,7 @@ const Home = () => {
 
     useEffect(() => {
         fetchTeachers();
-    }, [teachers]);
+    }, [users]);
 
     const handleCheck = async (uid: string) => {
         try {
@@ -137,9 +123,9 @@ const Home = () => {
                     <Text style={styles.columnHeader}>User Type</Text>
                 </View>
             </View>
-            <View style={styles.body}>
+            <ScrollView style={styles.body}>
                 <FlatList
-                    data={teachers}
+                    data={users}
                     keyExtractor={(item) => item.uid}
                     renderItem={({ item }) => (
                         <View style={styles.row}>
@@ -175,7 +161,7 @@ const Home = () => {
                         </View>
                     )}
                 />
-            </View>
+            </ScrollView>
         </View>
     );
 };
@@ -199,6 +185,7 @@ const styles = StyleSheet.create({
     },
     body: {
         width: "100%",
+        paddingBottom: 100,
     },
     tableHeader: {
         flexDirection: "row",
