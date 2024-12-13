@@ -81,7 +81,10 @@ class Register extends Component<{}, RegisterState> {
         return passwordRegex.test(password);
     };
 
-    checkIfUserExists = async (idNumber: string, email: string): Promise<boolean> => {
+    checkIfUserExists = async (
+        idNumber: string,
+        email: string
+    ): Promise<boolean> => {
         const userRef = doc(FIREBASE_DB, "users", idNumber);
         const userDoc = await getDoc(userRef);
         return (
@@ -128,7 +131,9 @@ class Register extends Component<{}, RegisterState> {
         }
 
         if (!this.validateIdNumber(idNumber)) {
-            this.setModal("Please enter a valid ID number (e.g., 12-3456-789).");
+            this.setModal(
+                "Please enter a valid ID number (e.g., 12-3456-789)."
+            );
             return;
         }
 
@@ -151,7 +156,9 @@ class Register extends Component<{}, RegisterState> {
 
         const userExists = await this.checkIfUserExists(idNumber, email);
         if (userExists) {
-            this.setModal("This ID number or email address is already registered.");
+            this.setModal(
+                "This ID number or email address is already registered."
+            );
             return;
         }
 
@@ -164,6 +171,9 @@ class Register extends Component<{}, RegisterState> {
 
             // Send email verification
             await sendEmailVerification(userCredential.user);
+            this.setModal(
+                "Registration successful! Please verify your email to continue."
+            );
 
             // Store user data in Firestore
             await setDoc(doc(FIREBASE_DB, "users", userCredential.user.uid), {
@@ -192,7 +202,9 @@ class Register extends Component<{}, RegisterState> {
             // Navigate based on user type
             // Note: Navigation logic needs to be implemented.
         } catch (error: any) {
-            this.setModal(error.message || "An error occurred during registration.");
+            this.setModal(
+                error.message || "An error occurred during registration."
+            );
         }
     };
 
@@ -223,7 +235,7 @@ class Register extends Component<{}, RegisterState> {
             modalVisible,
             modalMessage,
         } = this.state;
-    
+
         return (
             <ScrollView contentContainerStyle={styles.container}>
                 <ImageBackground
@@ -233,7 +245,7 @@ class Register extends Component<{}, RegisterState> {
                 >
                     <View style={styles.formContainer}>
                         <Text style={styles.title}>REGISTRATION</Text>
-                        
+
                         {/* Email Input */}
                         <TextInput
                             style={styles.input}
@@ -241,9 +253,11 @@ class Register extends Component<{}, RegisterState> {
                             placeholderTextColor="#999"
                             keyboardType="email-address"
                             value={email}
-                            onChangeText={(text) => this.setState({ email: text })}
+                            onChangeText={(text) =>
+                                this.setState({ email: text })
+                            }
                         />
-    
+
                         {/* Name Inputs */}
                         <View style={styles.nameContainer}>
                             <TextInput
@@ -251,24 +265,30 @@ class Register extends Component<{}, RegisterState> {
                                 placeholder="First Name"
                                 placeholderTextColor="#999"
                                 value={firstName}
-                                onChangeText={(text) => this.setState({ firstName: text })}
+                                onChangeText={(text) =>
+                                    this.setState({ firstName: text })
+                                }
                             />
                             <TextInput
                                 style={[styles.input, styles.nameInput]}
                                 placeholder="Middle Name"
                                 placeholderTextColor="#999"
                                 value={middleName}
-                                onChangeText={(text) => this.setState({ middleName: text })}
+                                onChangeText={(text) =>
+                                    this.setState({ middleName: text })
+                                }
                             />
                             <TextInput
                                 style={[styles.input, styles.nameInput]}
                                 placeholder="Last Name"
                                 placeholderTextColor="#999"
                                 value={lastName}
-                                onChangeText={(text) => this.setState({ lastName: text })}
+                                onChangeText={(text) =>
+                                    this.setState({ lastName: text })
+                                }
                             />
                         </View>
-    
+
                         {/* ID Number Input */}
                         <TextInput
                             style={styles.input}
@@ -276,9 +296,11 @@ class Register extends Component<{}, RegisterState> {
                             placeholderTextColor="#999"
                             keyboardType="numeric"
                             value={idNumber}
-                            onChangeText={(text) => this.setState({ idNumber: text })}
+                            onChangeText={(text) =>
+                                this.setState({ idNumber: text })
+                            }
                         />
-    
+
                         {/* Password Input */}
                         <View style={styles.passwordContainer}>
                             <TextInput
@@ -287,7 +309,9 @@ class Register extends Component<{}, RegisterState> {
                                 placeholderTextColor="#999"
                                 secureTextEntry={!showPassword}
                                 value={password}
-                                onChangeText={(text) => this.setState({ password: text })}
+                                onChangeText={(text) =>
+                                    this.setState({ password: text })
+                                }
                             />
                             <MaterialCommunityIcons
                                 name={showPassword ? "eye-off" : "eye"}
@@ -297,7 +321,7 @@ class Register extends Component<{}, RegisterState> {
                                 onPress={this.toggleShowPassword}
                             />
                         </View>
-    
+
                         {/* Confirm Password Input */}
                         <View style={styles.passwordContainer}>
                             <TextInput
@@ -306,7 +330,9 @@ class Register extends Component<{}, RegisterState> {
                                 placeholderTextColor="#999"
                                 secureTextEntry={!showPassword}
                                 value={confirmPassword}
-                                onChangeText={(text) => this.setState({ confirmPassword: text })}
+                                onChangeText={(text) =>
+                                    this.setState({ confirmPassword: text })
+                                }
                             />
                             <MaterialCommunityIcons
                                 name={showPassword ? "eye-off" : "eye"}
@@ -316,22 +342,30 @@ class Register extends Component<{}, RegisterState> {
                                 onPress={this.toggleShowPassword}
                             />
                         </View>
-    
+
                         {/* User Type Picker */}
                         <View style={styles.pickerContainer}>
                             <Picker
                                 selectedValue={selectedUserType}
                                 onValueChange={(itemValue) =>
-                                    this.setState({ selectedUserType: itemValue })
+                                    this.setState({
+                                        selectedUserType: itemValue,
+                                    })
                                 }
                                 style={styles.picker}
                             >
-                                <Picker.Item label="Select User Type" value="" />
-                                <Picker.Item label="Teacher/Faculty" value="teacher" />
+                                <Picker.Item
+                                    label="Select User Type"
+                                    value=""
+                                />
+                                <Picker.Item
+                                    label="Teacher/Faculty"
+                                    value="teacher"
+                                />
                                 <Picker.Item label="Student" value="student" />
                             </Picker>
                         </View>
-    
+
                         {/* Register Button */}
                         <TouchableOpacity
                             style={styles.button}
@@ -341,9 +375,13 @@ class Register extends Component<{}, RegisterState> {
                         </TouchableOpacity>
                     </View>
                 </ImageBackground>
-    
+
                 {/* Modal for messages */}
-                <Modal transparent={true} visible={modalVisible} onRequestClose={this.closeModal}>
+                <Modal
+                    transparent={true}
+                    visible={modalVisible}
+                    onRequestClose={this.closeModal}
+                >
                     <View style={styles.modalOverlay}>
                         <View style={styles.modalContent}>
                             <Text style={styles.modalText}>{modalMessage}</Text>
@@ -359,9 +397,7 @@ class Register extends Component<{}, RegisterState> {
             </ScrollView>
         );
     }
-    
 }
-
 
 const styles = StyleSheet.create({
     container: {
