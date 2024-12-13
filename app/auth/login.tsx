@@ -18,9 +18,14 @@ import {
 } from "firebase/auth";
 import { getDocs, query, where, collection } from "firebase/firestore";
 
-interface LoginState {
+class LoginState {
     idNumber: string;
     password: string;
+
+    constructor() {
+        this.idNumber = "";
+        this.password = "";
+    }
 }
 
 export default function Login() {
