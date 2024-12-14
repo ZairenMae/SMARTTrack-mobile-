@@ -6,7 +6,7 @@ import {
     Modal,
     TextInput,
     TouchableOpacity,
-    Alert,
+    Alert, FlatList,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
@@ -260,9 +260,12 @@ const Room = () => {
                 </TouchableOpacity>
             </View>
 
-            <View style={styles.roomCardContainer}>
-                {rooms.map((room) => (
-                    <View key={room.id} style={styles.roomCard}>
+            <FlatList
+                data={rooms}
+                keyExtractor={(item) => item.id}
+                contentContainerStyle={styles.roomCardContainer}
+                renderItem={({ item: room }) => (
+                    <View style={styles.roomCard}>
                         <TouchableOpacity onPress={() => setSelectedRoom(room)}>
                             <CardRoom
                                 id={room.id}
@@ -270,12 +273,13 @@ const Room = () => {
                                 section={room.section}
                                 startTime={room.startTime}
                                 endTime={room.endTime}
-                                roomCode={room.code}
+                                roomCode={room.code} 
+                                userType={"teacher"}                            
                             />
                         </TouchableOpacity>
                     </View>
-                ))}
-            </View>
+                )}
+            />
 
             {/* Modal for Creating a Room */}
             <Modal
@@ -587,8 +591,9 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: "flex-start",
         alignItems: "center",
-        backgroundColor: "#F9F9F9",
-        overflow: "scroll",
+        flexDirection: "column",
+        paddingBottom: 80,
+        width: "100%",
     },
     createGame: {
         width: 320,

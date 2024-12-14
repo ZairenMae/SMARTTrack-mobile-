@@ -11,7 +11,6 @@ import {
 import QRCode from "react-native-qrcode-svg";
 import { deleteDoc, doc } from "firebase/firestore";
 import { FIREBASE_DB } from "@/FirebaseConfig";
-import { MaterialIcons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 
 type CardRoomProps = {
@@ -21,6 +20,7 @@ type CardRoomProps = {
     startTime?: number;
     endTime?: number;
     roomCode: string;
+    userType: string; // Added userType
 };
 
 const CardRoom = ({
@@ -30,6 +30,7 @@ const CardRoom = ({
     startTime,
     endTime,
     roomCode,
+    userType,
 }: CardRoomProps) => {
     const [qrValue, setQrValue] = useState("");
     const [QRVisible, setQRVisible] = useState(false);
@@ -59,7 +60,6 @@ const CardRoom = ({
         Alert.alert("Copied", "Room code copied to clipboard!");
     };
 
-    // Format the time to a readable 12-hour format
     const formatTime = (time?: number) => {
         if (!time) return "N/A";
         return new Date(time).toLocaleTimeString([], {
@@ -76,36 +76,38 @@ const CardRoom = ({
         <View style={styles.card}>
             <View style={styles.bannerContainer}>
                 <View style={styles.banner}>
-                    <Image
-                        // source={{ uri: imageUri }} // Uncomment and use a valid image URI here
-                        style={styles.bannerImage}
-                        resizeMode="cover"
-                    />
+                    <Image style={styles.bannerImage} resizeMode="cover" />
                 </View>
                 <View style={styles.details}>
                     <View style={styles.header}>
                         <View style={styles.titleContainer}>
                             <Text
-                            style={styles.title}
-                            numberOfLines={1}
-                            ellipsizeMode="tail"
+                                style={styles.title}
+                                numberOfLines={1}
+                                ellipsizeMode="tail"
                             >
-                            {name || "Untitled"}
+                                {name || "Untitled"}
                             </Text>
                         </View>
-                        
-                        <TouchableOpacity
-                            onPress={() => deleteRoom(id)}
-                            style={styles.deleteButton}
-                        >
-                            <Text style={styles.deleteButtonText}>X</Text>
-                        </TouchableOpacity>
-                        </View>
-                    <Text style={styles.subtitle}>{section || "No Section"}</Text>
-                    <Text style={styles.subtitle}>{`Start: ${formattedStartTime}`}</Text>
-                    <Text style={styles.subtitle}>{`End: ${formattedEndTime}`}</Text>
-                    <View style={styles.cardButtons}>
+
+                        {userType === "teacher" && ( // Show delete button only if userType is teacher
+                            <TouchableOpacity
+                                onPress={() => deleteRoom(id)}
+                                style={styles.deleteButton}
+                            >
+                                <Text style={styles.deleteButtonText}>X</Text>
+                            </TouchableOpacity>
+                        )}
                     </View>
+                    <Text style={styles.subtitle}>
+                        {section || "No Section"}
+                    </Text>
+                    <Text
+                        style={styles.subtitle}
+                    >{`Start: ${formattedStartTime}`}</Text>
+                    <Text
+                        style={styles.subtitle}
+                    >{`End: ${formattedEndTime}`}</Text>
                 </View>
             </View>
 
@@ -120,13 +122,18 @@ const CardRoom = ({
                     <View style={styles.modalContentQR}>
                         {qrValue ? (
                             <>
-                                <Text style={styles.roomCodeText}>Room Code: {qrValue}</Text>
+                                <Text style={styles.roomCodeText}>
+                                    Room Code: {qrValue}
+                                </Text>
                                 <QRCode value={qrValue} size={200} />
                             </>
                         ) : (
                             <Text style={styles.roomCodeText}>Loading...</Text>
                         )}
-                        <TouchableOpacity style={styles.closeButton} onPress={closeQRCodeModal}>
+                        <TouchableOpacity
+                            style={styles.closeButton}
+                            onPress={closeQRCodeModal}
+                        >
                             <Text style={styles.closeButtonText}>Close</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
@@ -193,15 +200,12 @@ const styles = StyleSheet.create({
         fontWeight: "bold",
         fontSize: 20,
         textAlign: "left",
-        flex: 1,
-        flexShrink: 1,
-        marginRight: 10, // Maintain a margin for aesthetics
-        maxWidth: '75%', // Adjust this based on your design needs
+        flexShrink: 0, // Prevent shrinking
+        marginRight: 10,
     },
     titleContainer: {
-        flex: 1,            // Take up remaining horizontal space
-        overflow: "hidden",  // Ensure anything beyond boundary is clipped
-      },
+        flex: 1,
+    },
     deleteButton: {
         paddingHorizontal: 10,
         paddingVertical: 5,
