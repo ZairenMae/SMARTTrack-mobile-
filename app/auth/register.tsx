@@ -202,14 +202,13 @@ const Register = () => {
             console.log("User data stored in AsyncStorage");
 
             console.log("User added to Firestore");
-            setModalMessage("Registration successful!");
+            setModalMessage(
+                "Registration successful! Please check your email to confirm your account."
+            );
             setModalVisible(true);
 
-            if (register.selectedUserType === "teacher") {
-                router.push("/facultypage/home");
-            } else {
-                router.push("/userpage/home");
-            }
+            // After successful registration, navigate to the login page
+            router.push("/auth/login");
         } catch (error) {
             console.error("Error registering user:", error);
             setModalMessage(
