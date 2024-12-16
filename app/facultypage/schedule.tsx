@@ -1,33 +1,82 @@
-import React, { useState, useEffect} from 'react';
-import { View, Text, StyleSheet, ScrollView, Modal, TextInput, Button, TouchableOpacity, Alert } from 'react-native';
-import { Calendar, DateData } from 'react-native-calendars'; 
-import { FontAwesome5 } from '@expo/vector-icons';
-import AntDesign from '@expo/vector-icons/AntDesign';
-import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, getDoc, setDoc} from "firebase/firestore";
+import React, { useState, useEffect } from "react";
+import {
+    View,
+    Text,
+    StyleSheet,
+    ScrollView,
+    Modal,
+    TextInput,
+    Button,
+    TouchableOpacity,
+    Alert,
+} from "react-native";
+import { Calendar, DateData } from "react-native-calendars";
+import { Picker } from '@react-native-picker/picker';  
+import { FontAwesome5 } from "@expo/vector-icons";
+import AntDesign from "@expo/vector-icons/AntDesign";
+import {
+    collection,
+    getDocs,
+    addDoc,
+    doc,
+    updateDoc,
+    deleteDoc,
+    getDoc,
+    setDoc,
+} from "firebase/firestore";
 import { FIREBASE_DB as db } from "@/FirebaseConfig";
 
+class Event {
+    id: string;
+    date: string;
+    title: string;
+    location: string;
+    description?: string;
+    students?: string[];
+    notify?: boolean;
+    wholeDay?: boolean;
+    startTime?: string;
+    endTime?: string;
 
-interface Event {
-  id: string;
-  date: string;
-  title: string;
-  location: string;
-  description?: string; 
-  students?: string; 
-  notify?: boolean; 
-  wholeDay?: boolean; 
-  startTime?: string; 
-  endTime?: string; 
+    constructor(
+        id: string,
+        date: string,
+        title: string,
+        location: string,
+        description?: string,
+        students?: string[],
+        notify?: boolean,
+        wholeDay?: boolean,
+        startTime?: string,
+        endTime?: string
+    ) {
+        this.id = id;
+        this.date = date;
+        this.title = title;
+        this.location = location;
+        this.description = description;
+        this.students = students;
+        this.notify = notify;
+        this.wholeDay = wholeDay;
+        this.startTime = startTime;
+        this.endTime = endTime;
+    }
 }
 
-
 const ScheduleScreen = () => {
-  const [events, setEvents] = useState<Event[]>([]);
-  const [selectedDate, setSelectedDate] = useState<string>(''); 
-  const [selectedMonth, setSelectedMonth] = useState<string>('2024-09');
-  const [modalVisible, setModalVisible] = useState<boolean>(false);
-  const [isEditing, setIsEditing] = useState<boolean>(false);
-  const [currentEvent, setCurrentEvent] = useState<Event>({ id: '', date: '', title: '', location: '' });
+    const [events, setEvents] = useState<Event[]>([]);
+    const [selectedDate, setSelectedDate] = useState<string>("");
+    const [selectedMonth, setSelectedMonth] = useState<string>("2024-09");
+    const [modalVisible, setModalVisible] = useState<boolean>(false);
+    const [isEditing, setIsEditing] = useState<boolean>(false);
+    const [currentEvent, setCurrentEvent] = useState<Event>({
+        id: "",
+        date: "",
+        title: "",
+        location: "",
+    });
+    const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
+    const [eventId, setEventId] = useState<string>('');  
 
     const markedDates = events.reduce(
         (acc: Record<string, { marked: boolean; dotColor: string }>, event) => {
@@ -36,156 +85,326 @@ const ScheduleScreen = () => {
         },
         {}
     );
+    
+    class Student {
+      id: string;
+      email: string;
+      firstName: string;
+      lastName: string;
+      middleName: string;
+      idNumber: string;
+      userType: string;
 
+      constructor(
+        id: string, 
+        firstName: string, 
+        lastName: string, 
+        middleName: string, 
+        email: string, 
+        idNumber: string, 
+        userType: string
+    ) {
+        this.id = id;
+        this.firstName = firstName;
+        this.lastName = lastName;
+        this.middleName = middleName;
+        this.idNumber = idNumber;
+        this.userType = userType;
+        this.email = email;
+      }
+    }
+    
+    const [students, setStudents] = useState<Student[]>([]);
+
+    useEffect(() => {
+      const fetchStudents = async () => {
+        try {
+          const querySnapshot = await getDocs(collection(db, 'users'));
+          const studentList = querySnapshot.docs
+            .filter(doc => doc.data().userType === 'student')
+            .map(doc => ({
+              id: doc.id,
+              email: doc.data().email || '',
+              firstName: doc.data().firstName || '',
+              lastName: doc.data().lastName || '',
+              middleName: doc.data().middleName || '',
+              idNumber: doc.data().idNumber || '',
+              userType: doc.data().userType || '',
+            }));
+          setStudents(studentList);
+        } catch (error) {
+          console.error('Error fetching students: ', error);
+          Alert.alert('Error', 'Could not fetch student list');
+        }
+      };
+      fetchStudents();
+    }, []);
+  
+    const updateSelectedStudentsInFirestore = async (eventId: string, selectedStudents: string[]) => {
+      if (!eventId) {
+        console.error('Missing eventId. Cannot update Firestore.');
+        return;
+      }
+    
+      try {
+        const eventRef = doc(db, 'events', eventId);
+    
+        // Update Firestore document
+        await updateDoc(eventRef, { students: selectedStudents });
+    
+        console.log('Firestore updated successfully for eventId:', eventId, 'with students:', selectedStudents);
+      } catch (error) {
+        console.error('Error updating selected students in Firestore:', error);
+        Alert.alert('Error', 'Failed to update selected students in Firestore.');
+      }
+    };
+        
+  
+    const handlePickerChange = (itemValue: string) => {
+      setSelectedStudents((prevSelected) => {
+        let updatedStudents;
+        if (prevSelected.includes(itemValue)) {
+          updatedStudents = prevSelected.filter((id) => id !== itemValue);
+        } else {
+          updatedStudents = [...prevSelected, itemValue];
+        }
+    
+        if (isEditing) {
+          updateSelectedStudentsInFirestore(currentEvent.id, updatedStudents); 
+        }
+    
+        return updatedStudents;
+      });
+    };    
+    
+    const handleSelectEvent = (event: Event) => {
+      setEventId(event.id); 
+      setCurrentEvent(event);
+      setModalVisible(true); 
+    };
+    
+    // Handle removing a student from the selected list
+    const handleRemoveStudent = async (studentId: string) => {
+      console.log("Removing student:", studentId);
+      setSelectedStudents(selectedStudents.filter(id => id !== studentId));
+
+        if (!eventId) {
+        console.log("Student removed.");
+        return;
+      }
+    
+      try {
+        const eventDocRef = doc(db, 'events', eventId);
+            const eventDoc = await getDoc(eventDocRef);
+    
+        if (!eventDoc.exists()) {
+          console.error(`Event with ID ${eventId} does not exist.`);
+          return;
+        }
+    
+        const eventData = eventDoc.data();
+        const currentStudents = eventData?.students || [];
+    
+        if (!currentStudents.includes(studentId)) {
+          console.warn(`Student ID ${studentId} not found in the event.`);
+          return;
+        }
+    
+        const updatedStudents = currentStudents.filter((id: string) => id !== studentId);
+    
+        await updateDoc(eventDocRef, {
+          students: updatedStudents,
+        });
+        
+        console.log(`Student ${studentId} removed successfully from event ${eventId}.`);
+      } catch (error) {
+        console.error("Error removing student:", error);
+        Alert.alert("Error", "Failed to remove the student.");
+      }
+      if (isEditing) {
+  const eventDocRef = doc(db, "events", currentEvent.id);
+  await updateDoc(eventDocRef, {
+    students: selectedStudents,
+  }); }
+    };
+
+    const getCurrentMonth = () => {
+      const currentDate = new Date();
+      const month = currentDate.getMonth() + 1; 
+      const year = currentDate.getFullYear();
+      return `${year}-${month < 10 ? '0' + month : month}`;
+    };
+
+  
     const filterEventsByMonth = () => {
         return events.filter((event) => event.date.startsWith(selectedMonth));
     };
 
-  // Fetch events 
-  useEffect(() => {
-    const fetchEvents = async () => {
-      const querySnapshot = await getDocs(collection(db, 'events'));
-      const fetchedEvents = querySnapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          id: doc.id, 
-          date: data.date || '', 
-          title: data.title || '',
-          location: data.location || '',
-          description: data.description || '', 
-          students: data.students || '',
-          notify: data.notify || false,
-          wholeDay: data.wholeDay || false,
-          startTime: data.startTime || '',
-          endTime: data.endTime || '',
+    // Fetch events
+    useEffect(() => {
+        const fetchEvents = async () => {
+            const querySnapshot = await getDocs(collection(db, "events"));
+            const fetchedEvents = querySnapshot.docs.map((doc) => {
+                const data = doc.data();
+                return {
+                    id: doc.id,
+                    date: data.date || "",
+                    title: data.title || "",
+                    location: data.location || "",
+                    description: data.description || "",
+                    students: data.students || "",
+                    notify: data.notify || false,
+                    wholeDay: data.wholeDay || false,
+                    startTime: data.startTime || "",
+                    endTime: data.endTime || "",
+                };
+            });
+            fetchedEvents.sort((a, b) => {
+              const dateA = a.date instanceof Date ? a.date : a.date.toDate ? a.date.toDate() : new Date(a.date);
+              const dateB = b.date instanceof Date ? b.date : b.date.toDate ? b.date.toDate() : new Date(b.date);
+              return dateA - dateB;
+            });      
+            setEvents(fetchedEvents);
+            setSelectedMonth(getCurrentMonth());
         };
-      });
-      setEvents(fetchedEvents);
+
+        fetchEvents();
+    }, []);
+
+    // CREATE - Add a new event
+    const handleAddEvent = async () => {
+      try {
+        const { title, location, description } = currentEvent;
+        if (!title || !location || !description || selectedStudents.length === 0) {
+          Alert.alert("Error", "Enter all activity details.");
+          return; 
+        }
+    
+        const counterDocRef = doc(db, 'counters', 'eventCounter');
+        const counterDoc = await getDoc(counterDocRef);  
+    
+        let newId;
+        if (counterDoc.exists()) {
+          const lastId = counterDoc.data().lastId;
+          newId = lastId + 1;
+    
+          await updateDoc(counterDocRef, { lastId: newId });
+        } else {
+          newId = 1;
+          await setDoc(counterDocRef, { lastId: newId });
+        }  
+
+            const { notify, wholeDay, startTime, endTime } = currentEvent;
+
+            const newEvent = {
+                ...currentEvent,
+                id: newId,
+                date: selectedDate,
+                students: selectedStudents,
+                notify: notify ?? false,
+                wholeDay: wholeDay ?? false,
+                startTime: wholeDay ? "8:00 AM" : startTime || "8:00 AM",
+                endTime: wholeDay ? "5:00 PM" : endTime || "5:00 PM",
+            };
+
+            await addDoc(collection(db, "events"), newEvent);
+
+            setEvents([...events, newEvent]);
+            setModalVisible(false);
+            setCurrentEvent({ id: "", date: "", title: "", location: "" });
+        } catch (error) {
+            console.error("Error adding event: ", error);
+            Alert.alert("Error", "There was an error adding the event");
+        }
     };
 
-    fetchEvents();
-  }, []); 
-
-  // CREATE - Add a new event
-const handleAddEvent = async () => {
-  try {
-    const counterDocRef = doc(db, 'counters', 'eventCounter');
-    const counterDoc = await getDoc(counterDocRef);  
-
-    let newId;
-    if (counterDoc.exists()) {
-      const lastId = counterDoc.data().lastId;
-      newId = lastId + 1;
-
-      await updateDoc(counterDocRef, { lastId: newId });
-    } else {
-      newId = 1;
-      await setDoc(counterDocRef, { lastId: newId });
-    }
-
-    const { notify, wholeDay, startTime, endTime } = currentEvent;
-    const newEvent = {
-      ...currentEvent,
-      id: newId, 
-      date: selectedDate,
-      notify: notify ?? false,
-      wholeDay: wholeDay ?? false,
-      startTime: wholeDay ? "8:00 AM" : startTime || "8:00 AM",
-      endTime: wholeDay ? "5:00 PM" : endTime || "5:00 PM",
+    // READ - Handle date selection
+    const handleSelectDate = (day: DateData) => {
+        setSelectedDate(day.dateString);
     };
 
-    await addDoc(collection(db, 'events'), newEvent);
+    // UPDATE
+    const handleEditEvent = (event: Event) => {
+        setCurrentEvent(event);
+        setSelectedStudents(event.students || []);
+        setIsEditing(true);
+        setModalVisible(true);
+    };
 
-    setEvents([...events, newEvent]);
-    setModalVisible(false);
-    setCurrentEvent({ id: '', date: '', title: '', location: '' });
-  } catch (error) {
-    console.error("Error adding event: ", error);
-    Alert.alert('Error', 'There was an error adding the event');
-  }
-};
+    const handleUpdateEvent = async () => {
+        try {
+            const eventDocRef = doc(db, "events", currentEvent.id);
+            await updateDoc(eventDocRef, {
+                date: currentEvent.date,
+                title: currentEvent.title,
+                location: currentEvent.location,
+                description: currentEvent.description || "",
+                students: selectedStudents,
+                notify: currentEvent.notify || false,
+                wholeDay: currentEvent.wholeDay || false,
+                startTime: currentEvent.startTime || "",
+                endTime: currentEvent.endTime || "",
+            });
 
-  // READ - Handle date selection
-  const handleSelectDate = (day: DateData) => {
-    setSelectedDate(day.dateString); 
-  };
-  
-  // UPDATE
-  const handleEditEvent = (event: Event) => {
-    setCurrentEvent(event); 
-    setIsEditing(true); 
-    setModalVisible(true); 
-  };
+            setEvents((prevEvents) =>
+                prevEvents.map((event) =>
+                    event.id === currentEvent.id ? currentEvent : event
+                )
+            );
 
-  const handleUpdateEvent = async () => {
-    try {
-      const eventDocRef = doc(db, "events", currentEvent.id);
-        await updateDoc(eventDocRef, {
-        date: currentEvent.date,
-        title: currentEvent.title,
-        location: currentEvent.location,
-        description: currentEvent.description || '',
-        students: currentEvent.students || '',
-        notify: currentEvent.notify || false,
-        wholeDay: currentEvent.wholeDay || false,
-        startTime: currentEvent.startTime || '',
-        endTime: currentEvent.endTime || '',
-      });
-  
-      setEvents((prevEvents) =>
-        prevEvents.map((event) =>
-          event.id === currentEvent.id ? currentEvent : event
-        )
-      );
-  
-      setModalVisible(false);
-      setCurrentEvent({ id: '', date: '', title: '', location: '' });
-      setIsEditing(false);
-  
-      Alert.alert("Success", "Event updated successfully.");
-    } catch (error) {
-      console.error("Error updating event: ", error);
-      Alert.alert("Error", "There was an error updating the event.");
-    }
-  };
+            setModalVisible(false);
+            setCurrentEvent({ id: "", date: "", title: "", location: "" });
+            setIsEditing(false);
 
-  // DELETE
-  const handleDeleteEvent = async (id: string) => {
-    try {
-      console.log("Deleting event with ID:", id);
-      const eventDoc = doc(db, "events", id); 
-      await deleteDoc(eventDoc); 
-      console.log("Event deleted successfully");
-      Alert.alert("Success", "The event was deleted successfully.");
-      // Refresh the events list after deletion
-      const querySnapshot = await getDocs(collection(db, 'events'));
-      const updatedEvents = querySnapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          id: doc.id, 
-          date: data.date || '', 
-          title: data.title || '',
-          location: data.location || '',
-          description: data.description || '', 
-          students: data.students || '',
-          notify: data.notify || false,
-          wholeDay: data.wholeDay || false,
-          startTime: data.startTime || '',
-          endTime: data.endTime || '',
-        };
-      });
-      setEvents(updatedEvents);
-    } catch (error: unknown) {
-      if (error instanceof Error) {
-        console.error("Error deleting event from Firestore:", error.message);
-        Alert.alert("Error", `There was an error deleting the event: ${error.message}`);
-      } else {
-        console.error("An unknown error occurred", error);
-        Alert.alert("Error", "An unknown error occurred.");
-      }
-    }
-  };
-  
+            Alert.alert("Success", "Event updated successfully.");
+        } catch (error) {
+            console.error("Error updating event: ", error);
+            Alert.alert("Error", "There was an error updating the event.");
+        }
+    };
+
+    // DELETE
+    const handleDeleteEvent = async (id: string) => {
+        try {
+            console.log("Deleting event with ID:", id);
+            const eventDoc = doc(db, "events", id);
+            await deleteDoc(eventDoc);
+            console.log("Event deleted successfully");
+            Alert.alert("Success", "The event was deleted successfully.");
+            // Refresh the events list after deletion
+            const querySnapshot = await getDocs(collection(db, "events"));
+            const updatedEvents = querySnapshot.docs.map((doc) => {
+                const data = doc.data();
+                return {
+                    id: doc.id,
+                    date: data.date || "",
+                    title: data.title || "",
+                    location: data.location || "",
+                    description: data.description || "",
+                    students: data.students || "",
+                    notify: data.notify || false,
+                    wholeDay: data.wholeDay || false,
+                    startTime: data.startTime || "",
+                    endTime: data.endTime || "",
+                };
+            });
+            setEvents(updatedEvents);
+        } catch (error: unknown) {
+            if (error instanceof Error) {
+                console.error(
+                    "Error deleting event from Firestore:",
+                    error.message
+                );
+                Alert.alert(
+                    "Error",
+                    `There was an error deleting the event: ${error.message}`
+                );
+            } else {
+                console.error("An unknown error occurred", error);
+                Alert.alert("Error", "An unknown error occurred.");
+            }
+        }
+    };
 
     return (
         <View style={styles.container}>
@@ -201,6 +420,9 @@ const handleAddEvent = async () => {
                     [selectedDate]: {
                         selected: true,
                         selectedColor: "#800000",
+                        customStyles: {
+                          container: styles.markedDate,
+                        },
                     },
                 }}
                 theme={{
@@ -210,67 +432,98 @@ const handleAddEvent = async () => {
                 }}
             />
 
-<ScrollView style={styles.eventsContainer} contentContainerStyle={styles.eventsContentContainer}>
-  {filterEventsByMonth().map((event) => (
-    <View key={event.id} style={styles.eventCard}>
-      <View style={styles.eventDateContainer}>
-        <Text style={styles.eventDate}>{new Date(event.date).getDate()}</Text>
-        {/* Show "ALL DAY" if wholeDay is true; otherwise, show startTime and endTime */}
-        <Text style={styles.eventTime}>
-          {event.wholeDay ? "ALL DAY" : `${event.startTime || "N/A"} - ${event.endTime || "N/A"}`}
-        </Text>
-      </View>
-      <View style={styles.eventDetails}>
-        <View
-          //style={[
-            //styles.eventIndicator,
-           // { backgroundColor: event.id % 2 === 0 ? "#FFD700" : "#800000" },
-          //]}
-        />
-        <View style={styles.eventTextContainer}>
-          <Text style={styles.eventTitle}>{event.title}</Text>
-          <Text style={styles.eventLocation}>{event.location}</Text>
-        </View>
-        <TouchableOpacity
-          onPress={() => handleEditEvent(event)}
-          style={{ paddingRight: 10 }}
-        >
-          <FontAwesome5 name="edit" size={22} color="#800000" />
-        </TouchableOpacity>
+            <ScrollView
+                style={styles.eventsContainer}
+                contentContainerStyle={styles.eventsContentContainer}
+            >
+                {filterEventsByMonth().map((event, index) => (
+                    <View key={event.id} style={styles.eventCard}>
+                        <View style={[styles.eventDateContainer,       
+                        index % 2 === 0 ? styles.eventDateContainerEven : styles.eventDateContainerOdd]}>
+                            <Text style={styles.eventDate}>
+                                {new Date(event.date).getDate()}
+                            </Text>
+                            {/* Show "ALL DAY" if wholeDay is true; otherwise, show startTime and endTime */}
+                            <Text style={styles.eventTime}>
+                                {event.wholeDay
+                                    ? "ALL DAY"
+                                    : `${event.startTime || "N/A"} - ${
+                                          event.endTime || "N/A"
+                                      }`}
+                            </Text>
+                        </View>
+                        <View style={styles.eventDetails}>
+                            <View
+                            //style={[
+                            //styles.eventIndicator,
+                            // { backgroundColor: event.id % 2 === 0 ? "#FFD700" : "#800000" },
+                            //]}
+                            />
+                            <View style={styles.eventTextContainer}>
+                                <Text style={styles.eventTitle}>
+                                    {event.title}
+                                </Text>
+                                <Text style={styles.eventLocation}>
+                                    {event.location}
+                                </Text>
+                            </View>
+                            <TouchableOpacity
+                                onPress={() => handleEditEvent(event)}
+                                style={{ paddingRight: 10 }}
+                            >
+                                <FontAwesome5
+                                    name="edit"
+                                    size={22}
+                                    color="#800000"
+                                />
+                            </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => {
-  console.log("Delete button pressed"); // Check if the button press is detected
-  handleDeleteEvent(event.id);
-}}>
-  <FontAwesome5 name="minus-square" size={24} color="#800000" />
-</TouchableOpacity>
+                            <TouchableOpacity
+                                onPress={() => {
+                                    console.log("Delete button pressed"); // Check if the button press is detected
+                                    handleDeleteEvent(event.id);
+                                }}
+                            >
+                                <FontAwesome5
+                                    name="minus-square"
+                                    size={24}
+                                    color="#800000"
+                                />
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                ))}
+            </ScrollView>
 
-      </View>
-    </View>
-  ))}
-</ScrollView>
-
-
-      {selectedDate && (
-        <TouchableOpacity
-        style={styles.addButton}
-        onPress={() => {
-          setModalVisible(true);
-          setIsEditing(false);
-          setCurrentEvent({ id: '', date: selectedDate, title: '', location: '' });
-        }}
-      >
-        <AntDesign name="pluscircle" style={styles.addButtonIcon} />
-      </TouchableOpacity>
-      )}
+            {selectedDate && (
+                <TouchableOpacity
+                    style={styles.addButton}
+                    onPress={() => {
+                        setSelectedStudents([]);
+                        setModalVisible(true);
+                        setIsEditing(false);
+                        setCurrentEvent({
+                            id: "",
+                            date: selectedDate,
+                            title: "",
+                            location: "",
+                        });
+                    }}
+                >
+                    <AntDesign name="pluscircle" style={styles.addButtonIcon} />
+                </TouchableOpacity>
+            )}
 
             <Modal
                 visible={modalVisible}
                 animationType="slide"
                 onRequestClose={() => setModalVisible(false)}
             >
+                <ScrollView contentContainerStyle={styles.scrollViewContainer}>
                 <View style={styles.createActivityContainer}>
-                    <Text style={styles.modalHeader}>Create Activity</Text>
+                    <Text style={styles.modalHeader}>                
+                    {isEditing ? "Update Activity" : "Create Activity"}
+                    </Text>
 
                     <TextInput
                         placeholder="Activity Name"
@@ -306,16 +559,44 @@ const handleAddEvent = async () => {
                         style={styles.input}
                     />
 
-                    <TextInput
-                        placeholder="Add Student"
-                        value={currentEvent.students || ""}
-                        onChangeText={(text) =>
-                            setCurrentEvent({ ...currentEvent, students: text })
-                        }
-                        style={styles.input}
+<Picker
+                selectedValue={undefined}
+                onValueChange={handlePickerChange}
+                style={styles.input}
+            >
+                <Picker.Item label="Add Student" value="" />
+                {students.map((student) => (
+                    <Picker.Item
+                        key={student.id}
+                        label={`${student.firstName} ${student.lastName}`}
+                        value={student.id}
                     />
+                ))}
+            </Picker>
 
-                    <Text style={styles.dateLabel}>Date: {selectedDate}</Text>
+            <View style={styles.selectedStudentsContainer}>
+  <Text>Selected Students:</Text>
+  {selectedStudents.length > 0 ? (
+    selectedStudents.map((studentId) => {
+      const student = students.find((s) => s.id === studentId);
+      return (
+        student && (
+          <View key={student.id} style={styles.selectedStudentItem}>
+            <Text>{student.firstName} {student.lastName}</Text>
+            <TouchableOpacity onPress={() => handleRemoveStudent(student.id)}>
+              <FontAwesome5 name="trash" size={16} color="#800000" />
+            </TouchableOpacity>
+          </View>
+        )
+      );
+    })
+  ) : (
+    <Text>No students selected</Text>
+  )}
+</View>
+
+
+                    <Text style={styles.dateLabel}>Date: {currentEvent.date || selectedDate}</Text>
 
                     <View style={styles.toggleContainer}>
                         <TouchableOpacity
@@ -577,6 +858,7 @@ const handleAddEvent = async () => {
                         </TouchableOpacity>
                     </View>
                 </View>
+                </ScrollView>
             </Modal>
         </View>
     );
@@ -587,12 +869,23 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: "#f4f4f4",
     },
+    scrollViewContainer: {
+      padding: 20,
+      paddingBottom: 80, 
+  },
     eventsContainer: {
         padding: 16,
     },
     eventsContentContainer: {
         paddingBottom: 100,
     },
+    calendar: {
+      borderRadius: 10, 
+    },
+    markedDate: {
+      borderRadius: 10, 
+      backgroundColor: '#800000',
+    },  
     eventCard: {
         flexDirection: "row",
         alignItems: "center",
@@ -605,6 +898,17 @@ const styles = StyleSheet.create({
     eventDateContainer: {
         alignItems: "center",
         marginRight: 16,
+        fontSize: 12, 
+        color: '#888', 
+        borderRightWidth: 4,
+        paddingRight: 10,
+    },
+    eventDateContainerEven: {
+      borderRightColor: '#800000',
+    },
+  
+    eventDateContainerOdd: {
+      borderRightColor: '#f4c622',
     },
     eventDate: {
         fontSize: 24,
@@ -772,6 +1076,20 @@ const styles = StyleSheet.create({
         fontSize: 16,
         color: "#fff",
         textAlign: "center",
+    },
+    selectedStudentsContainer: {
+      marginTop: 10,
+      padding: 10,
+      backgroundColor: '#f0f0f0',
+      borderRadius: 8,
+    },
+    selectedStudentItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 10,
+      padding: 5,
+      backgroundColor: '#f0f0f0',
+      borderRadius: 5,
     },
 });
 
