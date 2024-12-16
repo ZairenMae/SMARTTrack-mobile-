@@ -7,6 +7,7 @@ import {
     TextInput,
     TouchableOpacity,
     Alert,
+    ScrollView,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { BarCodeScanner } from "expo-barcode-scanner";
@@ -15,7 +16,6 @@ import {
     collection,
     getDocs,
     doc,
-    addDoc,
     getDoc,
     setDoc,
     query,
@@ -24,6 +24,32 @@ import {
 import { onAuthStateChanged } from "firebase/auth";
 import { FIREBASE_DB, FIREBASE_AUTH } from "@/FirebaseConfig";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import CardRoom from "../../components/cards/CardRoom";
+
+class Student {
+    id: string;
+    firstName: string;
+    lastName: string;
+
+    constructor(id: string, firstName: string, lastName: string) {
+        this.id = id;
+        this.firstName = firstName;
+        this.lastName = lastName;
+    }
+}
+
+interface Room {
+    id: string;
+    name: string;
+    code: string;
+    section: string;
+    startTime: number;
+    endTime: number;
+    days: string[];
+    students: Student[];
+    teacherId?: string;
+    teacherName?: string;
+}
 
 const StudentRoom = () => {
     const [modalVisible, setModalVisible] = useState(false);
@@ -32,12 +58,14 @@ const StudentRoom = () => {
     const [user, setUser] = useState<any>(null);
     const [hasPermission, setHasPermission] = useState(false);
     const [isScanning, setIsScanning] = useState(false);
-    const [joinedRooms, setJoinedRooms] = useState<any>([]);
+    const [joinedRooms, setJoinedRooms] = useState<Room[]>([]);
+    const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
+    const [successModalVisible, setSuccessModalVisible] = useState(false);
+
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(FIREBASE_AUTH, (currentUser) => {
             if (currentUser) {
-                console.log("Authenticated user:", currentUser.uid);
                 setUser({
                     uid: currentUser.uid,
                     name: currentUser.displayName || "Unknown User",
@@ -46,7 +74,6 @@ const StudentRoom = () => {
 
                 fetchJoinedRooms(currentUser.uid);
             } else {
-                console.log("No authenticated user.");
                 setUser(null);
                 setJoinedRoom(null);
             }
@@ -55,15 +82,36 @@ const StudentRoom = () => {
         return () => unsubscribe(); // Clean up listener on unmount
     }, []);
 
+    useEffect(() => {
+        // Request camera permissions on mount
+        const requestCameraPermission = async () => {
+            const { status } = await BarCodeScanner.requestPermissionsAsync();
+            setHasPermission(status === "granted");
+        };
+
+        requestCameraPermission();
+    }, []);
+
+    const fetchTeacherName = async (teacherUid: string): Promise<string> => {
+        try {
+            const teacherDocRef = doc(FIREBASE_DB, "users", teacherUid);
+            const teacherSnap = await getDoc(teacherDocRef);
+            if (teacherSnap.exists()) {
+                const data = teacherSnap.data();
+                if (data.userType === "teacher") {
+                    const firstName = data.firstName || "";
+                    const lastName = data.lastName || "";
+                    return `${firstName} ${lastName}`.trim();
+                }
+            }
+        } catch (error) {
+            console.error("Error fetching teacher data:", error);
+        }
+        return "Unknown Teacher";
+    };
+
     const fetchJoinedRooms = async (userId: string) => {
         try {
-            console.log("Fetching joined rooms...");
-            if (!userId) {
-                console.log("No user ID provided.");
-                return;
-            }
-
-            // Query all rooms where the `students` array contains the user ID
             const roomsQuery = query(
                 collection(FIREBASE_DB, "rooms"),
                 where("students", "array-contains", userId)
@@ -77,7 +125,7 @@ const StudentRoom = () => {
                         const roomData = roomDoc.data();
                         const studentIds = roomData.students || [];
 
-                        // Fetch detailed student information
+                        // Fetch student details
                         const studentDetailsPromises = studentIds.map(
                             async (studentId: string) => {
                                 const studentDocRef = doc(
@@ -89,32 +137,48 @@ const StudentRoom = () => {
                                     studentDocRef
                                 );
 
-                                return studentSnapshot.exists()
-                                    ? {
-                                          id: studentId,
-                                          ...studentSnapshot.data(),
-                                      }
-                                    : null;
+                                if (studentSnapshot.exists()) {
+                                    const studData = studentSnapshot.data();
+                                    return {
+                                        id: studentId,
+                                        firstName: studData.firstName || "",
+                                        lastName: studData.lastName || "",
+                                    };
+                                } else {
+                                    return null;
+                                }
                             }
                         );
 
                         const studentDetails = (
                             await Promise.all(studentDetailsPromises)
-                        ).filter(Boolean);
+                        ).filter(Boolean) as Student[];
+
+                        let teacherName = "Unknown Teacher";
+                        if (roomData.teacherId) {
+                            teacherName = await fetchTeacherName(
+                                roomData.teacherId
+                            );
+                        }
 
                         return {
                             id: roomDoc.id,
-                            ...roomData,
-                            students: studentDetails, // Replace string IDs with detailed objects
+                            name: roomData.name || "",
+                            code: roomData.code || "",
+                            section: roomData.section || "",
+                            startTime: roomData.startTime || 0,
+                            endTime: roomData.endTime || 0,
+                            days: roomData.days || [],
+                            students: studentDetails,
+                            teacherId: roomData.teacherId || "",
+                            teacherName,
                         };
                     })
                 );
 
-                console.log("Rooms with detailed students:", rooms);
-                setJoinedRooms(rooms); // Update state with detailed room data
+                setJoinedRooms(rooms);
             } else {
-                console.log("No rooms found for the user.");
-                setJoinedRooms([]); // Clear state if no rooms are found
+                setJoinedRooms([]);
             }
         } catch (error) {
             console.error("Error fetching joined rooms:", error);
@@ -134,14 +198,6 @@ const StudentRoom = () => {
                 return;
             }
 
-            const userDocRef = doc(FIREBASE_DB, "users", userId);
-            const userSnapshot = await getDoc(userDocRef);
-
-            if (!userSnapshot.exists()) {
-                Alert.alert("Error", "User data not found in Firestore.");
-                return;
-            }
-
             const roomQuery = collection(FIREBASE_DB, "rooms");
             const querySnapshot = await getDocs(roomQuery);
             const matchedRoom = querySnapshot.docs.find(
@@ -154,7 +210,6 @@ const StudentRoom = () => {
 
                 const roomDocRef = doc(FIREBASE_DB, "rooms", roomId);
 
-                // Add the user ID to the `students` field (array of references)
                 const updatedStudents = roomData.students || [];
                 if (!updatedStudents.includes(userId)) {
                     updatedStudents.push(userId);
@@ -165,30 +220,27 @@ const StudentRoom = () => {
                     );
                 }
 
-                // Save the joined room ID to the user's Firestore document
-                await setDoc(
-                    userDocRef,
-                    { joinedRoomId: roomId },
-                    { merge: true }
-                );
-
-                const joinedRoomData = {
+                setJoinedRoom({
                     id: roomId,
                     ...roomData,
-                    students: updatedStudents, // Include the updated students list for local use
-                };
+                    students: updatedStudents,
+                });
 
-                setJoinedRoom(joinedRoomData);
-
-                // Save joined room data to AsyncStorage
                 await AsyncStorage.setItem(
                     "@joinedRoom",
-                    JSON.stringify(joinedRoomData)
+                    JSON.stringify({
+                        id: roomId,
+                        ...roomData,
+                        students: updatedStudents,
+                    })
                 );
 
                 setModalVisible(false);
                 setRoomCode("");
                 Alert.alert("Success", "You joined the room successfully!");
+
+                // Refresh the list of joined rooms
+                fetchJoinedRooms(userId);
             } else {
                 Alert.alert(
                     "Error",
@@ -201,16 +253,72 @@ const StudentRoom = () => {
         }
     };
 
-    const handleCopyToClipboard = (text: string) => {
-        Clipboard.setStringAsync(text);
-        Alert.alert("Copied", "Room code copied to clipboard!");
-    };
-
-    const handleBarCodeScanned = ({ data }: { data: string }) => {
+    const handleBarCodeScanned = async ({ data }: { data: string }) => {
         setIsScanning(false);
         setRoomCode(data);
-        Alert.alert("Scanned", `Room code: ${data}`);
+    
+        try {
+            const userId = FIREBASE_AUTH.currentUser?.uid;
+            if (!userId) {
+                setModalVisible(false); // Hide the "Join Room" modal
+                return;
+            }
+    
+            const roomQuery = collection(FIREBASE_DB, "rooms");
+            const querySnapshot = await getDocs(roomQuery);
+            const matchedRoom = querySnapshot.docs.find(
+                (doc) => doc.data().code === data
+            );
+    
+            if (matchedRoom) {
+                const roomData = matchedRoom.data();
+                const roomId = matchedRoom.id;
+    
+                const roomDocRef = doc(FIREBASE_DB, "rooms", roomId);
+    
+                const updatedStudents = roomData.students || [];
+                if (!updatedStudents.includes(userId)) {
+                    updatedStudents.push(userId);
+                    await setDoc(
+                        roomDocRef,
+                        { students: updatedStudents },
+                        { merge: true }
+                    );
+                }
+    
+                setJoinedRoom({
+                    id: roomId,
+                    ...roomData,
+                    students: updatedStudents,
+                });
+    
+                await AsyncStorage.setItem(
+                    "@joinedRoom",
+                    JSON.stringify({
+                        id: roomId,
+                        ...roomData,
+                        students: updatedStudents,
+                    })
+                );
+    
+                setModalVisible(false); // Hide the "Join Room" modal
+                setSuccessModalVisible(true); // Show success modal
+                fetchJoinedRooms(userId); // Refresh rooms
+            } else {
+                setModalVisible(false); // Hide the "Join Room" modal
+                Alert.alert(
+                    "Error",
+                    "Room not found. Please check the code and try again."
+                );
+            }
+        } catch (error) {
+            console.error("Error joining room:", error);
+            setModalVisible(false); // Hide the "Join Room" modal
+            Alert.alert("Error", "Failed to join the room. Please try again.");
+        }
     };
+    
+    
 
     return (
         <View style={styles.container}>
@@ -219,46 +327,31 @@ const StudentRoom = () => {
                     onPress={() => setModalVisible(true)}
                     style={styles.joinButton}
                 >
-                    <View style={styles.dash}></View>
                     <Text style={styles.joinRoomText}>JOIN ROOM +</Text>
                 </TouchableOpacity>
             </View>
 
             {joinedRooms.length > 0 ? (
-                joinedRooms.map((room: any) => (
+                joinedRooms.map((room: Room) => (
                     <View style={styles.roomCard} key={room.id}>
-                        <Text style={styles.roomDetailText}>
-                            Room Name: {room.name}
-                        </Text>
-                        <Text style={styles.roomDetailText}>
-                            Section: {room.section}
-                        </Text>
-                        <Text style={styles.roomDetailText}>
-                            Start Time: {room.startTime}
-                        </Text>
-                        <Text style={styles.roomDetailText}>
-                            End Time: {room.endTime}
-                        </Text>
-                        <View style={styles.roomCodeContainer}>
-                            <Text style={styles.roomCodeText}>
-                                Code: {room.id}
-                            </Text>
-                            <TouchableOpacity
-                                onPress={() => handleCopyToClipboard(room.id)}
-                            >
-                                <MaterialIcons
-                                    name="content-copy"
-                                    size={24}
-                                    color="black"
-                                />
-                            </TouchableOpacity>
-                        </View>
+                        <TouchableOpacity onPress={() => setSelectedRoom(room)}>
+                            <CardRoom
+                                id={room.id}
+                                name={room.name}
+                                section={room.section}
+                                startTime={room.startTime}
+                                endTime={room.endTime}
+                                roomCode={room.code}
+                                userType={"student"} // Example userType
+                            />
+                        </TouchableOpacity>
                     </View>
                 ))
             ) : (
                 <Text>No joined rooms found.</Text>
             )}
 
+            {/* Modal for Join Room */}
             <Modal
                 visible={modalVisible}
                 transparent={true}
@@ -300,6 +393,7 @@ const StudentRoom = () => {
                 </View>
             </Modal>
 
+            {/* Modal for Scanning QR Code */}
             {isScanning && hasPermission && (
                 <Modal visible={isScanning} transparent={true}>
                     <View style={styles.barcodeScannerContainer}>
@@ -316,6 +410,113 @@ const StudentRoom = () => {
                     </View>
                 </Modal>
             )}
+
+            {/* Modal FOR SCAN COMPLETE */}
+            <Modal
+                visible={successModalVisible}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={() => setSuccessModalVisible(false)}
+            >
+                <View style={styles.modalContainer}>
+                    <View style={styles.successModalContent}>
+                        <Text style={styles.modalTitle}>All set!</Text>
+                        <Text style={{ textAlign: "center", marginBottom: 20 }}>
+                            You've joined the room.
+                        </Text>
+                        <TouchableOpacity
+                            style={[styles.button, styles.confirmButton]}
+                            onPress={() => setSuccessModalVisible(false)}
+                        >
+                            <Text style={styles.buttonText}>OK</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
+
+
+            {/* Modal for Selected Room Details */}
+            <Modal
+                visible={selectedRoom !== null}
+                transparent={true}
+                animationType="slide"
+                onRequestClose={() => setSelectedRoom(null)}
+            >
+                <View style={styles.modalContainer}>
+                    <View style={styles.modalContent}>
+                        {selectedRoom && (
+                            <>
+                                <Text style={styles.modalTitle}>
+                                    {selectedRoom.name}
+                                </Text>
+                                <Text>Section: {selectedRoom.section}</Text>
+                                <Text>
+                                    Start:{" "}
+                                    {new Date(
+                                        selectedRoom.startTime
+                                    ).toLocaleTimeString([], {
+                                        hour: "2-digit",
+                                        minute: "2-digit",
+                                    })}
+                                </Text>
+                                <Text>
+                                    End:{" "}
+                                    {new Date(
+                                        selectedRoom.endTime
+                                    ).toLocaleTimeString([], {
+                                        hour: "2-digit",
+                                        minute: "2-digit",
+                                    })}
+                                </Text>
+                                <Text
+                                    style={{
+                                        fontWeight: "bold",
+                                        marginTop: 10,
+                                    }}
+                                >
+                                    Teacher: {selectedRoom.teacherName}
+                                </Text>
+                                <Text
+                                    style={{
+                                        fontWeight: "bold",
+                                        marginTop: 10,
+                                    }}
+                                >
+                                    Members:
+                                </Text>
+                                <ScrollView
+                                    style={{
+                                        maxHeight: 200,
+                                        marginVertical: 10,
+                                    }}
+                                >
+                                    {selectedRoom.students &&
+                                    selectedRoom.students.length > 0 ? (
+                                        selectedRoom.students.map((student) => (
+                                            <Text key={student.id}>
+                                                {student.firstName}{" "}
+                                                {student.lastName}
+                                            </Text>
+                                        ))
+                                    ) : (
+                                        <Text>No classmates found.</Text>
+                                    )}
+                                </ScrollView>
+                                <TouchableOpacity
+                                    style={[
+                                        styles.button,
+                                        styles.cancelButton,
+                                        { marginTop: 20 },
+                                    ]}
+                                    onPress={() => setSelectedRoom(null)}
+                                >
+                                    <Text style={styles.buttonText}>CLOSE</Text>
+                                </TouchableOpacity>
+                            </>
+                        )}
+                    </View>
+                </View>
+            </Modal>
         </View>
     );
 };
@@ -328,7 +529,7 @@ const styles = StyleSheet.create({
         backgroundColor: "#F9F9F9",
         overflow: "scroll",
         paddingBottom: 100,
-        paddingTop: 50,
+        paddingTop: 20,
     },
     joinRoom: {
         width: 320,
@@ -341,13 +542,9 @@ const styles = StyleSheet.create({
         height: "100%",
         justifyContent: "center",
         alignItems: "center",
-    },
-    dash: {
-        width: "100%",
-        height: "100%",
         backgroundColor: "white",
         borderRadius: 16,
-        borderWidth: 16,
+        borderWidth: 10,
         borderColor: "#A0A0A0",
         borderStyle: "dashed",
     },
@@ -377,6 +574,20 @@ const styles = StyleSheet.create({
         shadowRadius: 5,
         elevation: 5,
     },
+
+    successModalContent: {
+        width: "80%",
+        padding: 20,
+        backgroundColor: "white",
+        borderRadius: 10,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 5,
+        elevation: 5,
+        alignItems: "center",
+    },
+    
     modalTitle: {
         fontSize: 18,
         fontWeight: "bold",
@@ -388,14 +599,14 @@ const styles = StyleSheet.create({
         borderColor: "#ccc",
         borderRadius: 5,
         padding: 10,
-        marginBottom: 15, // Increased spacing below input field
+        marginBottom: 15,
         width: "100%",
     },
     scanButton: {
-        backgroundColor: "#FFC107", // Yellow color for scan button
+        backgroundColor: "#FFC107",
         paddingVertical: 10,
         borderRadius: 5,
-        marginBottom: 20, // Added spacing below the scan button
+        marginBottom: 20,
         alignItems: "center",
     },
     buttonContainer: {
@@ -411,52 +622,32 @@ const styles = StyleSheet.create({
         minWidth: 100,
     },
     cancelButton: {
-        backgroundColor: "#800000", // Maroon color for cancel button
+        backgroundColor: "#800000",
     },
     confirmButton: {
-        backgroundColor: "#800000", // Maroon color for join button
+        backgroundColor: "#800000",
     },
     barcodeScannerContainer: {
         flex: 1,
         justifyContent: "center",
         alignItems: "center",
-        backgroundColor: "rgba(0, 0, 0, 0.8)", // Dark overlay for scanner
+        backgroundColor: "rgba(0, 0, 0, 0.8)",
     },
     closeScannerButton: {
         position: "absolute",
         bottom: 20,
-        backgroundColor: "#800000", // Maroon color for close button
+        backgroundColor: "#800000",
         padding: 10,
         borderRadius: 5,
     },
     roomCard: {
         marginTop: 20,
-        padding: 10,
-        backgroundColor: "#fff",
-        borderRadius: 10,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.2,
-        shadowRadius: 5,
-        elevation: 3,
+        marginBottom: 10,
+        alignItems: "center",
         width: "90%",
     },
-    roomDetailText: {
-        fontSize: 16,
-        marginBottom: 5,
-    },
-    roomCodeContainer: {
-        flexDirection: "row",
-        alignItems: "center",
-        marginTop: 10,
-    },
-    roomCodeText: {
-        fontSize: 16,
-        fontWeight: "bold",
-        flex: 1,
-    },
     buttonText: {
-        color: "#fff", // White text
+        color: "#fff",
         fontSize: 16,
         fontWeight: "bold",
         textAlign: "center",

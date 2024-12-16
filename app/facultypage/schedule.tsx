@@ -149,6 +149,7 @@ const ScheduleScreen = () => {
       try {
         const eventRef = doc(db, 'events', eventId);
     
+        // Update Firestore document
         await updateDoc(eventRef, { students: selectedStudents });
     
         console.log('Firestore updated successfully for eventId:', eventId, 'with students:', selectedStudents);
@@ -370,7 +371,7 @@ const ScheduleScreen = () => {
             await deleteDoc(eventDoc);
             console.log("Event deleted successfully");
             Alert.alert("Success", "The event was deleted successfully.");
-
+            // Refresh the events list after deletion
             const querySnapshot = await getDocs(collection(db, "events"));
             const updatedEvents = querySnapshot.docs.map((doc) => {
                 const data = doc.data();
@@ -452,7 +453,12 @@ const ScheduleScreen = () => {
                             </Text>
                         </View>
                         <View style={styles.eventDetails}>
-                            <View/>
+                            <View
+                            //style={[
+                            //styles.eventIndicator,
+                            // { backgroundColor: event.id % 2 === 0 ? "#FFD700" : "#800000" },
+                            //]}
+                            />
                             <View style={styles.eventTextContainer}>
                                 <Text style={styles.eventTitle}>
                                     {event.title}
@@ -474,7 +480,7 @@ const ScheduleScreen = () => {
 
                             <TouchableOpacity
                                 onPress={() => {
-                                    console.log("Delete button pressed");
+                                    console.log("Delete button pressed"); // Check if the button press is detected
                                     handleDeleteEvent(event.id);
                                 }}
                             >
@@ -588,7 +594,6 @@ const ScheduleScreen = () => {
     <Text>No students selected</Text>
   )}
 </View>
-
 
                     <Text style={styles.dateLabel}>Date: {currentEvent.date || selectedDate}</Text>
 

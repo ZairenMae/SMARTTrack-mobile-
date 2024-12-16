@@ -1,19 +1,12 @@
 import React, { useState } from "react";
-import {
-    View,
-    StyleSheet,
-    TouchableOpacity,
-    Pressable,
-    ImageBackground,
-} from "react-native";
-import { Tabs, useRouter } from "expo-router"; // Use `useRouter` for navigation
+import { View, StyleSheet, Pressable, ImageBackground } from "react-native";
+import { Tabs } from "expo-router";
 import { MyTabBar } from "@/components/TabBar";
 import { Feather } from "@expo/vector-icons";
 import SideBar from "@/components/SideBar";
 
-const TabLayout = () => {
+const TabLayout = ({ navigation }: any) => {
     const [isSidebarVisible, setSidebarVisible] = useState(false);
-    const router = useRouter(); // Use router for navigation
 
     const toggleSidebar = () => {
         setSidebarVisible((prev) => !prev);
@@ -29,15 +22,15 @@ const TabLayout = () => {
         <View style={styles.container}>
             {/* Overlay to detect outside clicks and close the sidebar */}
             {isSidebarVisible && (
-                <Pressable onPress={handleOutsidePress}>
-                    <View style={styles.overlay} />
-                </Pressable>
+                <Pressable
+                    onPress={handleOutsidePress}
+                    style={styles.overlay}
+                />
             )}
 
             {/* SideBar rendering */}
             <View style={styles.sidebarContainer}>
-                {isSidebarVisible && <SideBar navigation={router} />}
-                {/* Pass router */}
+                {isSidebarVisible && <SideBar navigation={navigation} />}
             </View>
 
             {/* Main content with Tabs */}
@@ -46,7 +39,7 @@ const TabLayout = () => {
                     tabBar={(props) => <MyTabBar {...props} />}
                     screenOptions={{
                         headerLeft: () => (
-                            <TouchableOpacity
+                            <Pressable
                                 onPress={toggleSidebar}
                                 style={styles.menuButton}
                             >
@@ -55,7 +48,7 @@ const TabLayout = () => {
                                     size={24}
                                     color="#F5C722"
                                 />
-                            </TouchableOpacity>
+                            </Pressable>
                         ),
                         headerTitleAlign: "center",
                         headerRight: () => (
@@ -71,14 +64,13 @@ const TabLayout = () => {
                         headerTintColor: "#F5C722",
                     }}
                 >
-                    <Tabs.Screen name="home" options={{ title: "Home" }} />
+                    <Tabs.Screen name="home" options={{ title: "Profiles" }} />
                     <Tabs.Screen name="room" options={{ title: "Room" }} />
                     <Tabs.Screen name="report" options={{ title: "Report" }} />
                     <Tabs.Screen
                         name="schedule"
                         options={{ title: "Schedule" }}
                     />
-                    <Tabs.Screen name="index" options={{ title: "Index" }} />
                 </Tabs>
             </View>
         </View>

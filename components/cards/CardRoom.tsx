@@ -9,24 +9,18 @@ import {
     Alert,
 } from "react-native";
 import QRCode from "react-native-qrcode-svg";
-import {
-    collection,
-    addDoc,
-    deleteDoc,
-    doc,
-    getDocs,
-} from "firebase/firestore";
+import { deleteDoc, doc } from "firebase/firestore";
 import { FIREBASE_DB } from "@/FirebaseConfig";
-import { MaterialIcons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 
 type CardRoomProps = {
     id: string;
     name?: string;
     section?: string;
-    startTime?: string;
-    endTime?: string;
+    startTime?: number;
+    endTime?: number;
     roomCode: string;
+    userType: string; // Added userType
 };
 
 const CardRoom = ({
@@ -36,125 +30,126 @@ const CardRoom = ({
     startTime,
     endTime,
     roomCode,
+    userType,
 }: CardRoomProps) => {
     const [qrValue, setQrValue] = useState("");
     const [QRVisible, setQRVisible] = useState(false);
+
     const openQRCodeModal = () => {
-        setQrValue(roomCode); // Set QR value when a room is clicked
-        setQRVisible(true); // Show the modal
+        setQrValue(roomCode);
+        setQRVisible(true);
     };
 
-    // Close the QR code modal
     const closeQRCodeModal = () => {
         setQRVisible(false);
-        setQrValue(""); // Clear the QR value when the modal is closed
+        setQrValue("");
     };
 
     const deleteRoom = async (roomId: string) => {
         try {
-            // Delete the room from Firestore
             await deleteDoc(doc(FIREBASE_DB, "rooms", roomId));
             console.log("Room deleted from Firestore:", roomId);
         } catch (error) {
             console.error("Error deleting room:", error);
-            Alert.alert(
-                "Error",
-                "Failed to delete the room. Please try again."
-            );
+            Alert.alert("Error", "Failed to delete the room. Please try again.");
         }
     };
+
     const handleCopyToClipboard = (text: string) => {
         Clipboard.setStringAsync(text);
         Alert.alert("Copied", "Room code copied to clipboard!");
     };
 
+    const formatTime = (time?: number) => {
+        if (!time) return "N/A";
+        return new Date(time).toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: true,
+        });
+    };
+
+    const formattedStartTime = formatTime(startTime);
+    const formattedEndTime = formatTime(endTime);
+
     return (
         <View style={styles.card}>
             <View style={styles.bannerContainer}>
                 <View style={styles.banner}>
-                    <Image
-                        // source={{ uri: imageUri }} // Uncomment and use a valid image URI here
-                        style={styles.bannerImage}
-                        resizeMode="cover"
-                    />
+                    <Image style={styles.bannerImage} resizeMode="cover" />
                 </View>
                 <View style={styles.details}>
-                    <Text style={styles.title}>{name}</Text>
-                    <Text style={styles.subtitle}>{section}</Text>
-                    <Text style={styles.subtitle}>{`Start: ${startTime}`}</Text>
-                    <Text style={styles.subtitle}>{`End: ${endTime}`}</Text>
-                    <View style={styles.cardButtons}>
-                        <Text
-                            style={styles.roomCode}
-                        >{`Code: ${roomCode}`}</Text>
-                        <TouchableOpacity onPress={() => openQRCodeModal()}>
-                            <MaterialIcons
-                                name="content-copy"
-                                size={24}
-                                color="black"
-                            />
+                    <View style={styles.header}>
+                        <View style={styles.titleContainer}>
+                            <Text
+                                style={styles.title}
+                                numberOfLines={1}
+                                ellipsizeMode="tail"
+                            >
+                                {name || "Untitled"}
+                            </Text>
+                        </View>
+
+                        {userType === "teacher" && ( // Show delete button only if userType is teacher
+                            <TouchableOpacity
+                                onPress={() => deleteRoom(id)}
+                                style={styles.deleteButton}
+                            >
+                                <Text style={styles.deleteButtonText}>X</Text>
+                            </TouchableOpacity>
+                        )}
+                    </View>
+                    <Text style={styles.subtitle}>
+                        {section || "No Section"}
+                    </Text>
+                    <Text
+                        style={styles.subtitle}
+                    >{`Start: ${formattedStartTime}`}</Text>
+                    <Text
+                        style={styles.subtitle}
+                    >{`End: ${formattedEndTime}`}</Text>
+                </View>
+            </View>
+
+            {/* QR Code Modal */}
+            <Modal
+                animationType="slide"
+                transparent={true}
+                visible={QRVisible}
+                onRequestClose={closeQRCodeModal}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContentQR}>
+                        {qrValue ? (
+                            <>
+                                <Text style={styles.roomCodeText}>
+                                    Room Code: {qrValue}
+                                </Text>
+                                <QRCode value={qrValue} size={200} />
+                            </>
+                        ) : (
+                            <Text style={styles.roomCodeText}>Loading...</Text>
+                        )}
+                        <TouchableOpacity
+                            style={styles.closeButton}
+                            onPress={closeQRCodeModal}
+                        >
+                            <Text style={styles.closeButtonText}>Close</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={styles.closeButton}
+                            onPress={() => handleCopyToClipboard(qrValue)}
+                        >
+                            <Text style={styles.closeButtonText}>Copy</Text>
                         </TouchableOpacity>
                     </View>
-                    <TouchableOpacity
-                        onPress={() => deleteRoom(id)}
-                        style={styles.deleteButton}
-                    >
-                        <Text style={styles.deleteButtonText}>X</Text>
-                    </TouchableOpacity>
                 </View>
-
-                {/* QR Code Modal */}
-                <Modal
-                    animationType="slide"
-                    transparent={true}
-                    visible={QRVisible}
-                    onRequestClose={closeQRCodeModal}
-                >
-                    <View style={styles.modalOverlay}>
-                        <View style={styles.modalContentQR}>
-                            {qrValue ? ( // Ensure QR code is only rendered when qrValue is available
-                                <>
-                                    <Text style={styles.roomCodeText}>
-                                        Room Code: {qrValue}
-                                    </Text>
-                                    <QRCode value={qrValue} size={200} />
-                                </>
-                            ) : (
-                                <Text style={styles.roomCodeText}>
-                                    Loading...
-                                </Text> // Display loading text if qrValue is empty
-                            )}
-                            <TouchableOpacity
-                                style={styles.closeButton}
-                                onPress={closeQRCodeModal}
-                            >
-                                <Text style={styles.closeButtonText}>
-                                    Close
-                                </Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={styles.closeButton}
-                                onPress={() => handleCopyToClipboard(qrValue)}
-                            >
-                                <Text style={styles.closeButtonText}>Copy</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                </Modal>
-            </View>
+            </Modal>
         </View>
     );
 };
 
 const styles = StyleSheet.create({
-    cardContainer: {
-        flex: 1,
-        alignItems: "center",
-        justifyContent: "center",
-        padding: 10,
-        width: "100%",
-        position: "relative",
-    },
     card: {
         backgroundColor: "white",
         borderWidth: 1,
@@ -166,41 +161,65 @@ const styles = StyleSheet.create({
         shadowRadius: 5,
         elevation: 5,
         flexDirection: "row",
-        justifyContent: "space-between",
         alignItems: "center",
-        width: "100%",
-        position: "relative",
+        width: 320,       // Fixed width in dp (similar to px)
+        height: 160,      // If you also want a fixed height
         padding: 10,
+        overflow: "hidden",
     },
+    
     bannerContainer: {
         flexDirection: "row",
         alignItems: "center",
-        gap: 10,
+        flex: 1,
     },
     banner: {
         backgroundColor: "#000",
         borderRadius: 5,
         height: 100,
-        aspectRatio: 1,
+        width: 100,
         overflow: "hidden",
-        margin: 8,
+        marginRight: 10,
     },
     bannerImage: {
         width: "100%",
         height: "100%",
     },
     details: {
-        width: "100%",
+        flex: 1,
         flexDirection: "column",
         alignItems: "flex-start",
     },
+    header: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        width: "100%",  // Ensure the header takes full width
+    },
     title: {
         fontWeight: "bold",
-        fontSize: 24,
+        fontSize: 20,
+        textAlign: "left",
+        flexShrink: 0, // Prevent shrinking
+        marginRight: 10,
+    },
+    titleContainer: {
+        flex: 1,
+    },
+    deleteButton: {
+        paddingHorizontal: 10,
+        paddingVertical: 5,
+        borderRadius: 5,
+        backgroundColor: "#FF4D4D",
+    },
+    deleteButtonText: {
+        color: "white",
+        fontWeight: "bold",
     },
     subtitle: {
-        fontSize: 16,
+        fontSize: 14,
         color: "#aaa",
+        marginTop: 2,
     },
     roomCode: {
         marginTop: 5,
@@ -208,9 +227,10 @@ const styles = StyleSheet.create({
         fontSize: 16,
         color: "#333",
     },
-    qrContainer: {
-        marginTop: 20,
+    cardButtons: {
+        flexDirection: "row",
         alignItems: "center",
+        marginTop: 5,
     },
     modalOverlay: {
         flex: 1,
@@ -231,36 +251,17 @@ const styles = StyleSheet.create({
         padding: 10,
         borderRadius: 5,
         alignItems: "center",
+        width: "50%",
     },
     closeButtonText: {
         color: "#fff",
         fontWeight: "bold",
-    },
-    deleteButton: {
-        marginTop: 5,
-        backgroundColor: "#FF4D4D",
-        paddingHorizontal: 10,
-        paddingVertical: 5,
-        borderRadius: 5,
-        position: "absolute",
-        flex: 1,
-        right: 130,
-    },
-    deleteButtonText: {
-        color: "white",
-        fontWeight: "bold",
+        textAlign: "center",
     },
     roomCodeText: {
         fontSize: 18,
         fontWeight: "bold",
-        flex: 1,
-    },
-    cardButtons: {
-        flex: 1,
-        width: "100%",
-
-        alignItems: "center",
-        flexDirection: "row",
+        marginBottom: 10,
     },
 });
 

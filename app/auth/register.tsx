@@ -29,17 +29,40 @@ import {
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+class RegisterState {
+    email: string;
+    password: string;
+    confirmPassword: string;
+    selectedUserType: string;
+    firstName: string;
+    middleName: string;
+    lastName: string;
+    idNumber: string;
+
+    constructor() {
+        this.email = "";
+        this.password = "";
+        this.confirmPassword = "";
+        this.selectedUserType = "";
+        this.firstName = "";
+        this.middleName = "";
+        this.lastName = "";
+        this.idNumber = "";
+    }
+}
+
 const Register = () => {
     const [showPassword, setShowPassword] = useState(false);
-    const [email, setEmail] = useState("");
-    const [password, setPassword] = useState("");
-    const [confirmPassword, setConfirmPassword] = useState("");
-    const [selectedUserType, setSelectedUserType] = useState("");
-    const [firstName, setFirstName] = useState("");
-    const [middleName, setMiddleName] = useState("");
-    const [lastName, setLastName] = useState("");
-    const [idNumber, setIdNumber] = useState("");
-    const [errorMessage, setErrorMessage] = useState("");
+    const [register, setRegister] = useState<RegisterState>({
+        email: "",
+        password: "",
+        confirmPassword: "",
+        selectedUserType: "",
+        firstName: "",
+        middleName: "",
+        lastName: "",
+        idNumber: "",
+    });
     const [modalVisible, setModalVisible] = useState(false);
     const [modalMessage, setModalMessage] = useState("");
     const router = useRouter();
@@ -81,26 +104,26 @@ const Register = () => {
 
     const handleRegister = async () => {
         if (
-            !email ||
-            !password ||
-            !confirmPassword ||
-            !selectedUserType ||
-            !firstName ||
-            !lastName ||
-            !idNumber
+            !register.email ||
+            !register.password ||
+            !register.confirmPassword ||
+            !register.selectedUserType ||
+            !register.firstName ||
+            !register.lastName ||
+            !register.idNumber
         ) {
             setModalMessage("Please fill in all fields.");
             setModalVisible(true);
             return;
         }
 
-        if (!validateEmail(email)) {
+        if (!validateEmail(register.email)) {
             setModalMessage("Please enter a valid email.");
             setModalVisible(true);
             return;
         }
 
-        if (!validateIdNumber(idNumber)) {
+        if (!validateIdNumber(register.idNumber)) {
             setModalMessage(
                 "Please enter a valid ID number (e.g., 12-3456-789)."
             );
@@ -108,7 +131,7 @@ const Register = () => {
             return;
         }
 
-        if (!validatePassword(password)) {
+        if (!validatePassword(register.password)) {
             setModalMessage(
                 "Password must be at least 8 characters long and contain at least one uppercase letter."
             );
@@ -116,19 +139,22 @@ const Register = () => {
             return;
         }
 
-        if (password !== confirmPassword) {
+        if (register.password !== register.confirmPassword) {
             setModalMessage("Passwords do not match.");
             setModalVisible(true);
             return;
         }
 
-        if (!email.endsWith("@cit.edu")) {
+        if (!register.email.endsWith("@cit.edu")) {
             setModalMessage("Email must be a valid @cit.edu address.");
             setModalVisible(true);
             return;
         }
 
-        const userExists = await checkIfUserExists(idNumber, email);
+        const userExists = await checkIfUserExists(
+            register.idNumber,
+            register.email
+        );
         if (userExists) {
             setModalMessage(
                 "This ID number or email address is already registered."
@@ -140,8 +166,8 @@ const Register = () => {
         try {
             const userCredential = await createUserWithEmailAndPassword(
                 FIREBASE_AUTH,
-                email,
-                password
+                register.email,
+                register.password
             );
             console.log("User registered:", userCredential.user);
 
@@ -152,12 +178,15 @@ const Register = () => {
             // Store user data in Firestore (ensure not to store passwords in plain text)
             await setDoc(doc(FIREBASE_DB, "users", userCredential.user.uid), {
                 uid: userCredential.user.uid,
-                email,
-                userType: selectedUserType,
-                firstName,
-                middleName,
-                lastName,
-                idNumber,
+                email: register.email,
+                userType:
+                    register.selectedUserType === "teacher"
+                        ? "pending"
+                        : register.selectedUserType,
+                firstName: register.firstName,
+                middleName: register.middleName,
+                lastName: register.lastName,
+                idNumber: register.idNumber,
                 createdAt: new Date(),
             });
 
@@ -165,22 +194,21 @@ const Register = () => {
             await AsyncStorage.setItem(
                 "userData",
                 JSON.stringify({
-                    name: `${firstName} ${middleName} ${lastName}`,
-                    studentId: idNumber,
-                    email: email,
+                    name: `${register.firstName} ${register.middleName} ${register.lastName}`,
+                    studentId: register.idNumber,
+                    email: register.email,
                 })
             );
             console.log("User data stored in AsyncStorage");
 
             console.log("User added to Firestore");
-            setModalMessage("Registration successful!");
+            setModalMessage(
+                "Registration successful! Please check your email to confirm your account."
+            );
             setModalVisible(true);
 
-            if (selectedUserType === "teacher") {
-                router.push("/facultypage/home");
-            } else {
-                router.push("/userpage/home");
-            }
+            // After successful registration, navigate to the login page
+            router.push("/auth/login");
         } catch (error) {
             console.error("Error registering user:", error);
             setModalMessage(
@@ -188,15 +216,6 @@ const Register = () => {
                     "An error occurred during registration."
             );
             setModalVisible(true);
-        }
-    };
-
-    const deleteUserFromFirestore = async (uid: string) => {
-        try {
-            await deleteDoc(doc(FIREBASE_DB, "users", uid));
-            console.log("User deleted from Firestore");
-        } catch (error) {
-            console.error("Error deleting user from Firestore:", error);
         }
     };
 
@@ -215,8 +234,10 @@ const Register = () => {
                         placeholder="Email"
                         placeholderTextColor="#999"
                         keyboardType="email-address"
-                        value={email}
-                        onChangeText={setEmail}
+                        value={register.email}
+                        onChangeText={(text) =>
+                            setRegister({ ...register, email: text })
+                        }
                     />
 
                     <View style={styles.nameContainer}>
@@ -224,22 +245,28 @@ const Register = () => {
                             style={[styles.input, styles.nameInput]}
                             placeholder="Firstname"
                             placeholderTextColor="#999"
-                            value={firstName}
-                            onChangeText={setFirstName}
+                            value={register.firstName}
+                            onChangeText={(text) =>
+                                setRegister({ ...register, firstName: text })
+                            }
                         />
                         <TextInput
                             style={[styles.input, styles.nameInput]}
-                            placeholder="ML"
+                            placeholder="Middle Name"
                             placeholderTextColor="#999"
-                            value={middleName}
-                            onChangeText={setMiddleName}
+                            value={register.middleName}
+                            onChangeText={(text) =>
+                                setRegister({ ...register, middleName: text })
+                            }
                         />
                         <TextInput
                             style={[styles.input, styles.nameInput]}
                             placeholder="Lastname"
                             placeholderTextColor="#999"
-                            value={lastName}
-                            onChangeText={setLastName}
+                            value={register.lastName}
+                            onChangeText={(text) =>
+                                setRegister({ ...register, lastName: text })
+                            }
                         />
                     </View>
 
@@ -248,8 +275,10 @@ const Register = () => {
                         placeholder="ID Number"
                         placeholderTextColor="#999"
                         keyboardType="numeric"
-                        value={idNumber}
-                        onChangeText={setIdNumber}
+                        value={register.idNumber}
+                        onChangeText={(text) =>
+                            setRegister({ ...register, idNumber: text })
+                        }
                     />
 
                     <View style={styles.passwordContainer}>
@@ -258,8 +287,10 @@ const Register = () => {
                             placeholder="Password"
                             placeholderTextColor="#999"
                             secureTextEntry={!showPassword}
-                            value={password}
-                            onChangeText={setPassword}
+                            value={register.password}
+                            onChangeText={(text) =>
+                                setRegister({ ...register, password: text })
+                            }
                         />
                         <MaterialCommunityIcons
                             name={showPassword ? "eye-off" : "eye"}
@@ -276,8 +307,13 @@ const Register = () => {
                             placeholder="Confirm Password"
                             placeholderTextColor="#999"
                             secureTextEntry={!showPassword}
-                            value={confirmPassword}
-                            onChangeText={setConfirmPassword}
+                            value={register.confirmPassword}
+                            onChangeText={(text) =>
+                                setRegister({
+                                    ...register,
+                                    confirmPassword: text,
+                                })
+                            }
                         />
                         <MaterialCommunityIcons
                             name={showPassword ? "eye-off" : "eye"}
@@ -290,45 +326,42 @@ const Register = () => {
 
                     <View style={styles.pickerContainer}>
                         <Picker
-                            selectedValue={selectedUserType}
+                            selectedValue={register.selectedUserType}
                             onValueChange={(itemValue) =>
-                                setSelectedUserType(itemValue)
+                                setRegister({
+                                    ...register,
+                                    selectedUserType: itemValue,
+                                })
                             }
-                            style={styles.picker}
                         >
                             <Picker.Item label="Select User Type" value="" />
-                            <Picker.Item
-                                label="Teacher/Faculty"
-                                value="pending"
-                            />
                             <Picker.Item label="Student" value="student" />
+                            <Picker.Item label="Teacher" value="teacher" />
                         </Picker>
                     </View>
 
                     <TouchableOpacity
-                        style={styles.button}
+                        style={styles.registerButton}
                         onPress={handleRegister}
                     >
-                        <Text style={styles.buttonText}>SIGN UP</Text>
+                        <Text style={styles.registerButtonText}>REGISTER</Text>
                     </TouchableOpacity>
                 </View>
             </ImageBackground>
 
-            {/* Modal for displaying messages */}
             <Modal
-                transparent={true}
                 visible={modalVisible}
-                animationType="fade"
+                animationType="slide"
+                transparent={true}
                 onRequestClose={() => setModalVisible(false)}
             >
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
-                        <Text style={styles.modalText}>{modalMessage}</Text>
+                        <Text style={styles.modalMessage}>{modalMessage}</Text>
                         <TouchableOpacity
                             onPress={() => setModalVisible(false)}
-                            style={styles.modalButton}
                         >
-                            <Text style={styles.modalButtonText}>OK</Text>
+                            <Text style={styles.modalCloseText}>Close</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -442,6 +475,27 @@ const styles = StyleSheet.create({
     modalButtonText: {
         color: "#fff",
         fontSize: 16,
+    },
+    modalMessage: {
+        fontSize: 16,
+        textAlign: "center",
+        marginBottom: 20,
+    },
+    modalCloseText: {
+        color: "#1E90FF",
+        fontSize: 16,
+    },
+    registerButton: {
+        backgroundColor: "#f1c40f",
+        paddingVertical: 15,
+        borderRadius: 8,
+        padding: 5,
+        alignItems: "center",
+    },
+    registerButtonText: {
+        color: "#fff",
+        fontSize: 18,
+        fontWeight: "bold",
     },
 });
 

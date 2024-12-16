@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react"; // Add useEffect
+import React, { useState, useEffect } from "react";
 import {
     StyleSheet,
     Text,
@@ -6,33 +6,44 @@ import {
     Modal,
     TextInput,
     TouchableOpacity,
-    Alert,
+    Alert, FlatList,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import CardRoom from "../../components/cards/CardRoom";
-import {
-    collection,
-    addDoc,
-    deleteDoc,
-    doc,
-    getDocs,
-} from "firebase/firestore"; // Add getDocs
+import { collection, addDoc, getDocs } from "firebase/firestore";
 import { FIREBASE_DB } from "@/FirebaseConfig";
+import { getAuth } from "firebase/auth";
+import QRCode from "react-native-qrcode-svg";
+
+class Student {
+    id!: string;
+    firstName: string;
+    lastName: string;
+
+    constructor(id: string, firstName: string, lastName: string) {
+        this.id = id;
+        this.firstName = firstName;
+        this.lastName = lastName;
+    }
+}
+
+class RoomClass {
+    id!: string;
+    name!: string;
+    code!: string;
+    section!: string;
+    startTime!: number;
+    endTime!: number;
+    days!: string[];
+    students!: Student[];
+    teacherId?: string; // optional
+}
 
 const Room = () => {
     const [modalVisible, setModalVisible] = useState(false);
     const [confirmationVisible, setConfirmationVisible] = useState(false);
-    const [rooms, setRooms] = useState<
-        {
-            id: string;
-            name: string;
-            section: string;
-            startTime: string;
-            endTime: string;
-            code: string;
-        }[]
-    >([]);
+    const [rooms, setRooms] = useState<RoomClass[]>([]);
     const [roomName, setRoomName] = useState("");
     const [roomSection, setRoomSection] = useState("");
     const [startHour, setStartHour] = useState("");
@@ -42,6 +53,31 @@ const Room = () => {
     const [startAmPm, setStartAmPm] = useState("AM");
     const [endAmPm, setEndAmPm] = useState("AM");
     const [currentRoom, setCurrentRoom] = useState<any>(null);
+    const [selectedDays, setSelectedDays] = useState<string[]>([]);
+    const [selectedRoom, setSelectedRoom] = useState<RoomClass | null>(null);
+
+    // New states for QR Code modal
+    const [qrVisible, setQrVisible] = useState(false);
+    const [qrValue, setQrValue] = useState("");
+
+    const auth = getAuth();
+    const teacherId = auth.currentUser?.uid; // The logged-in teacher's ID
+
+    const toggleDaySelection = (day: string) => {
+        setSelectedDays((prev) =>
+            prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]
+        );
+    };
+
+    const dayButtons = [
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+        "Sunday",
+    ];
 
     const generateRoomCode = () =>
         Math.floor(1000000 + Math.random() * 9000000).toString();
@@ -52,21 +88,21 @@ const Room = () => {
         setEndAmPm((prev) => (prev === "AM" ? "PM" : "AM"));
 
     const validateHourInput = (value: string): string => {
-        const numericValue = value.replace(/[^0-9]/g, ""); // Remove non-numeric characters
-        if (numericValue === "") return ""; // Allow empty input
+        const numericValue = value.replace(/[^0-9]/g, "");
+        if (numericValue === "") return "";
         const parsedValue = Math.min(
             Math.max(parseInt(numericValue, 10), 1),
             12
-        ); // Restrict within 1-12
+        );
         return parsedValue.toString();
     };
 
     const validateMinuteInput = (value: string): string => {
-        const numericValue = value.replace(/[^0-9]/g, ""); // Remove non-numeric characters
-        if (numericValue.length > 2) return numericValue.slice(0, 2); // Limit input to 2 characters
-        if (numericValue === "") return ""; // Allow empty input for flexibility
-        const parsedValue = Math.min(parseInt(numericValue, 10), 59); // Restrict to max 59
-        return parsedValue.toString(); // Return valid numeric value
+        const numericValue = value.replace(/[^0-9]/g, "");
+        if (numericValue.length > 2) return numericValue.slice(0, 2);
+        if (numericValue === "") return "";
+        const parsedValue = Math.min(parseInt(numericValue, 10), 59);
+        return parsedValue.toString();
     };
 
     const handleCreateRoom = () => {
@@ -78,12 +114,31 @@ const Room = () => {
             endHour &&
             endMinute
         ) {
+            const startTime = new Date();
+            startTime.setHours(
+                startAmPm === "AM"
+                    ? parseInt(startHour) % 12
+                    : (parseInt(startHour) % 12) + 12,
+                parseInt(startMinute),
+                0
+            );
+
+            const endTime = new Date();
+            endTime.setHours(
+                endAmPm === "AM"
+                    ? parseInt(endHour) % 12
+                    : (parseInt(endHour) % 12) + 12,
+                parseInt(endMinute),
+                0
+            );
+
             const newRoom = {
                 name: roomName,
                 section: roomSection,
-                startTime: `${startHour}:${startMinute} ${startAmPm}`,
-                endTime: `${endHour}:${endMinute} ${endAmPm}`,
+                startTime: startTime.getTime(),
+                endTime: endTime.getTime(),
                 code: generateRoomCode(),
+                teacherId: teacherId || "unknown", // Store teacher ID here
             };
 
             setCurrentRoom(newRoom);
@@ -97,17 +152,16 @@ const Room = () => {
     const confirmRoomCreation = async () => {
         try {
             if (currentRoom) {
-                // Add room data to Firestore
+                const roomWithDays = { ...currentRoom, days: selectedDays };
                 const docRef = await addDoc(
                     collection(FIREBASE_DB, "rooms"),
-                    currentRoom
+                    roomWithDays
                 );
                 console.log("Room added with ID:", docRef.id);
 
-                // Add room to local state
                 setRooms((prevRooms) => [
                     ...prevRooms,
-                    { ...currentRoom, id: docRef.id },
+                    { ...roomWithDays, id: docRef.id, students: [] },
                 ]);
             }
 
@@ -132,32 +186,68 @@ const Room = () => {
         Alert.alert("Copied", "Room code copied to clipboard!");
     };
 
-    // Fetch rooms from Firestore on component mount
+    const openQRCodeModal = (code: string) => {
+        setQrValue(code);
+        setQrVisible(true);
+    };
+
+    const closeQRCodeModal = () => {
+        setQrVisible(false);
+        setQrValue("");
+    };
+
     const fetchRooms = async () => {
         try {
-            const querySnapshot = await getDocs(
+            const roomsSnapshot = await getDocs(
                 collection(FIREBASE_DB, "rooms")
             );
-            const fetchedRooms = querySnapshot.docs.map((doc) => ({
-                id: doc.id,
-                name: doc.data().name || "Unnamed Room", // Default value if name is missing
-                section: doc.data().section || "No Section", // Default value if section is missing
-                startTime: doc.data().startTime || "N/A", // Default value if startTime is missing
-                endTime: doc.data().endTime || "N/A", // Default value if endTime is missing
-                code: doc.data().code || "0000000", // Default value if code is missing
-            }));
+            const usersSnapshot = await getDocs(
+                collection(FIREBASE_DB, "users")
+            );
+
+            const usersMap: Record<
+                string,
+                { firstName: string; lastName: string }
+            > = {};
+            usersSnapshot.forEach((userDoc) => {
+                const userData = userDoc.data();
+                usersMap[userDoc.id] = {
+                    firstName: userData.firstName || "Unknown",
+                    lastName: userData.lastName || "Unknown",
+                };
+            });
+
+            const fetchedRooms = roomsSnapshot.docs.map((roomDoc) => {
+                const roomData = roomDoc.data();
+                const students =
+                    roomData.students?.map((studentId: string) => ({
+                        id: studentId,
+                        firstName: usersMap[studentId]?.firstName || "Unknown",
+                        lastName: usersMap[studentId]?.lastName || "Unknown",
+                    })) || [];
+
+                return {
+                    id: roomDoc.id,
+                    name: roomData.name || "Unnamed Room",
+                    code: roomData.code || "0000000",
+                    section: roomData.section || "No Section",
+                    startTime: roomData.startTime || 0,
+                    endTime: roomData.endTime || 0,
+                    days: Array.isArray(roomData.days) ? roomData.days : [],
+                    students,
+                    teacherId: roomData.teacherId || "unknown",
+                } as RoomClass;
+            });
+
             setRooms(fetchedRooms);
         } catch (error) {
             console.error("Error fetching rooms:", error);
-            Alert.alert("Error", "Failed to fetch rooms. Please try again.");
         }
     };
 
     useEffect(() => {
         fetchRooms();
-    }, [rooms]);
-
-    console.log(rooms);
+    }, []);
 
     return (
         <View style={styles.container}>
@@ -166,23 +256,30 @@ const Room = () => {
                     onPress={() => setModalVisible(true)}
                     style={styles.createButton}
                 >
-                    <View style={styles.dash}></View>
                     <Text style={styles.createRoom}>CREATE ROOM +</Text>
                 </TouchableOpacity>
             </View>
 
-            {rooms.map((room) => (
-                <View key={room.id} style={styles.roomCard}>
-                    <CardRoom
-                        id={room.id}
-                        name={room.name}
-                        section={room.section}
-                        startTime={room.startTime}
-                        endTime={room.endTime}
-                        roomCode={room.code}
-                    />
-                </View>
-            ))}
+            <FlatList
+                data={rooms}
+                keyExtractor={(item) => item.id}
+                contentContainerStyle={styles.roomCardContainer}
+                renderItem={({ item: room }) => (
+                    <View style={styles.roomCard}>
+                        <TouchableOpacity onPress={() => setSelectedRoom(room)}>
+                            <CardRoom
+                                id={room.id}
+                                name={room.name}
+                                section={room.section}
+                                startTime={room.startTime}
+                                endTime={room.endTime}
+                                roomCode={room.code} 
+                                userType={"teacher"}                            
+                            />
+                        </TouchableOpacity>
+                    </View>
+                )}
+            />
 
             {/* Modal for Creating a Room */}
             <Modal
@@ -274,6 +371,25 @@ const Room = () => {
                                 </TouchableOpacity>
                             </View>
                         </View>
+                        <View style={styles.daysContainer}>
+                            {dayButtons.map((day) => (
+                                <TouchableOpacity
+                                    key={day}
+                                    style={[
+                                        styles.dayButton,
+                                        selectedDays.includes(day)
+                                            ? styles.dayButtonSelected
+                                            : null,
+                                    ]}
+                                    onPress={() => toggleDaySelection(day)}
+                                >
+                                    <Text style={styles.dayButtonText}>
+                                        {day}
+                                    </Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+
                         <View style={styles.buttonContainer}>
                             <TouchableOpacity
                                 style={[styles.button, styles.cancelButton]}
@@ -316,9 +432,7 @@ const Room = () => {
                                     </Text>
                                     <TouchableOpacity
                                         onPress={() =>
-                                            handleCopyToClipboard(
-                                                currentRoom.code
-                                            )
+                                            openQRCodeModal(currentRoom.code)
                                         }
                                     >
                                         <MaterialIcons
@@ -347,6 +461,127 @@ const Room = () => {
                     </View>
                 </View>
             </Modal>
+
+            {/* Modal to show selected room details and students */}
+            <Modal
+                visible={!!selectedRoom}
+                transparent={true}
+                animationType="slide"
+                onRequestClose={() => setSelectedRoom(null)}
+            >
+                <View style={styles.modalContainer}>
+                    <View style={styles.modalContent}>
+                        {selectedRoom && (
+                            <>
+                                <Text style={styles.modalTitle}>
+                                    {selectedRoom.name}
+                                </Text>
+                                <Text>Section: {selectedRoom.section}</Text>
+                                <Text>
+                                    Start:{" "}
+                                    {new Date(
+                                        selectedRoom.startTime
+                                    ).toLocaleTimeString([], {
+                                        hour: "2-digit",
+                                        minute: "2-digit",
+                                    })}
+                                </Text>
+                                <Text>
+                                    End:{" "}
+                                    {new Date(
+                                        selectedRoom.endTime
+                                    ).toLocaleTimeString([], {
+                                        hour: "2-digit",
+                                        minute: "2-digit",
+                                    })}
+                                </Text>
+
+                                <View style={styles.roomCodeRow}>
+                                    <Text style={styles.roomCodeText}>
+                                        Room Code: {selectedRoom.code}
+                                    </Text>
+                                    <TouchableOpacity
+                                        onPress={() =>
+                                            openQRCodeModal(selectedRoom.code)
+                                        }
+                                    >
+                                        <MaterialIcons
+                                            name="content-copy"
+                                            size={20}
+                                            color="black"
+                                        />
+                                    </TouchableOpacity>
+                                </View>
+
+                                <Text
+                                    style={{
+                                        marginTop: 10,
+                                        fontWeight: "bold",
+                                    }}
+                                >
+                                    Students:
+                                </Text>
+                                {selectedRoom.students &&
+                                selectedRoom.students.length > 0 ? (
+                                    selectedRoom.students.map((student) => (
+                                        <Text key={student.id}>
+                                            {student.firstName}{" "}
+                                            {student.lastName}
+                                        </Text>
+                                    ))
+                                ) : (
+                                    <Text>No students enrolled.</Text>
+                                )}
+                                <TouchableOpacity
+                                    style={[
+                                        styles.button,
+                                        styles.cancelButton,
+                                        { marginTop: 20 },
+                                    ]}
+                                    onPress={() => setSelectedRoom(null)}
+                                >
+                                    <Text style={styles.buttonText}>CLOSE</Text>
+                                </TouchableOpacity>
+                            </>
+                        )}
+                    </View>
+                </View>
+            </Modal>
+
+            {/* QR Code Modal */}
+            <Modal
+                animationType="slide"
+                transparent={true}
+                visible={qrVisible}
+                onRequestClose={closeQRCodeModal}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContentQR}>
+                        {qrValue ? (
+                            <>
+                                <Text style={styles.roomCodeText}>
+                                    Room Code: {qrValue}
+                                </Text>
+                                <QRCode value={qrValue} size={200} />
+                            </>
+                        ) : (
+                            <Text style={styles.roomCodeText}>Loading...</Text>
+                        )}
+                        <TouchableOpacity
+                            style={styles.closeButton}
+                            onPress={closeQRCodeModal}
+                        >
+                            <Text style={styles.closeButtonText}>Close</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={styles.closeButton}
+                            onPress={() => handleCopyToClipboard(qrValue)}
+                        >
+                            <Text style={styles.closeButtonText}>Copy</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
         </View>
     );
 };
@@ -356,8 +591,9 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: "flex-start",
         alignItems: "center",
-        backgroundColor: "#F9F9F9",
-        overflow: "scroll",
+        flexDirection: "column",
+        paddingBottom: 80,
+        width: "100%",
     },
     createGame: {
         width: 320,
@@ -370,13 +606,10 @@ const styles = StyleSheet.create({
         height: "100%",
         justifyContent: "center",
         alignItems: "center",
-    },
-    dash: {
-        width: "100%",
-        height: "100%",
+        marginTop: 20,
         backgroundColor: "white",
         borderRadius: 16,
-        borderWidth: 16,
+        borderWidth: 10,
         borderColor: "#A0A0A0",
         borderStyle: "dashed",
     },
@@ -454,45 +687,89 @@ const styles = StyleSheet.create({
         minWidth: 100,
     },
     cancelButton: {
-        backgroundColor: "#800000", // Maroon color
+        backgroundColor: "#800000",
     },
     confirmButton: {
-        backgroundColor: "#800000", // Maroon color
+        backgroundColor: "#800000",
     },
     amPmButton: {
-        backgroundColor: "#800000", // Maroon color for AM/PM buttons
+        backgroundColor: "#800000",
     },
     buttonText: {
-        color: "#fff", // White text
+        color: "#fff",
         fontSize: 16,
         fontWeight: "bold",
     },
+    roomCardContainer: {
+        width: "100%",
+        alignItems: "center",
+        marginBottom: 100,
+    },
     roomCard: {
+        marginTop: 20,
         marginBottom: 10,
         alignItems: "center",
-    },
-    roomCode: {
-        marginTop: 5,
-        fontWeight: "bold",
-        fontSize: 14,
-        color: "#555",
-    },
-
-    roomCodeContainer: {
-        flexDirection: "row",
-        alignItems: "center",
-        marginTop: 5,
+        width: "90%",
     },
     roomCodeText: {
         fontSize: 18,
         fontWeight: "bold",
         flex: 1,
+        marginBottom: 10,
     },
     roomCodeRow: {
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-between",
         marginTop: 10,
+    },
+    daysContainer: {
+        flexDirection: "row",
+        flexWrap: "wrap",
+        marginVertical: 10,
+        justifyContent: "center",
+    },
+    dayButton: {
+        padding: 10,
+        borderRadius: 5,
+        margin: 5,
+        borderWidth: 1,
+        borderColor: "#ccc",
+        backgroundColor: "#f9f9f9",
+    },
+    dayButtonSelected: {
+        backgroundColor: "#800000",
+    },
+    dayButtonText: {
+        color: "#000",
+        fontSize: 14,
+        fontWeight: "bold",
+    },
+    modalOverlay: {
+        flex: 1,
+        justifyContent: "center",
+        alignItems: "center",
+        backgroundColor: "rgba(0, 0, 0, 0.5)",
+    },
+    modalContentQR: {
+        backgroundColor: "white",
+        padding: 20,
+        borderRadius: 10,
+        alignItems: "center",
+        width: 300,
+    },
+    closeButton: {
+        marginTop: 20,
+        backgroundColor: "#4CAF50",
+        padding: 10,
+        borderRadius: 5,
+        alignItems: "center",
+        width: "50%",
+    },
+    closeButtonText: {
+        color: "#fff",
+        fontWeight: "bold",
+        textAlign: "center",
     },
 });
 

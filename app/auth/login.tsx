@@ -18,9 +18,21 @@ import {
 } from "firebase/auth";
 import { getDocs, query, where, collection } from "firebase/firestore";
 
+class LoginState {
+    idNumber: string;
+    password: string;
+
+    constructor() {
+        this.idNumber = "";
+        this.password = "";
+    }
+}
+
 export default function Login() {
-    const [idNumber, setIdNumber] = useState("");
-    const [password, setPassword] = useState("");
+    const [login, setLogin] = useState<LoginState>({
+        idNumber: "",
+        password: "",
+    });
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
     const [resetEmail, setResetEmail] = useState(""); // State for password reset email
@@ -34,6 +46,20 @@ export default function Login() {
         setShowPassword(!showPassword);
     };
 
+    const handleIdNumberChange = (text: string) => {
+        setLogin((prevLogin) => ({
+            ...prevLogin,
+            idNumber: text,
+        }));
+    };
+
+    const handlePasswordChange = (text: string) => {
+        setLogin((prevLogin) => ({
+            ...prevLogin,
+            password: text,
+        }));
+    };
+
     // Function to display modal with a message
     const showModal = (message: string) => {
         setModalMessage(message);
@@ -41,7 +67,7 @@ export default function Login() {
     };
 
     const handleSignIn = async () => {
-        if (!idNumber || !password) {
+        if (!login.idNumber || !login.password) {
             showModal(
                 "Please fill out both the ID Number/Email and password fields."
             );
@@ -54,11 +80,11 @@ export default function Login() {
             let email;
 
             // Check if input is an email
-            if (idNumber.includes("@")) {
-                email = idNumber;
+            if (login.idNumber.includes("@")) {
+                email = login.idNumber;
             } else {
                 // Sanitize and validate ID number
-                const sanitizedIdNumber = idNumber.trim();
+                const sanitizedIdNumber = login.idNumber.trim();
 
                 // Validate the format (e.g., 00-0000-000)
                 const regex = /^(\d{2})-(\d{4})-(\d{3})$/;
@@ -92,7 +118,7 @@ export default function Login() {
             const userCredential = await signInWithEmailAndPassword(
                 auth,
                 email,
-                password
+                login.password
             );
             console.log("User signed in:", userCredential.user.email);
 
@@ -119,12 +145,12 @@ export default function Login() {
             }
         } catch (error) {
             console.error("Error:", error);
-            showModal("An error occurred during sign-in.");
+            showModal("Invalid ID Number or Password.");
         } finally {
             setLoading(false);
         }
     };
-    
+
     const handleForgotPassword = async () => {
         if (!resetEmail) {
             showModal("Please enter your email address.");
@@ -165,8 +191,8 @@ export default function Login() {
                 <TextInput
                     style={styles.input}
                     placeholder=""
-                    value={idNumber}
-                    onChangeText={setIdNumber}
+                    value={login.idNumber}
+                    onChangeText={handleIdNumberChange}
                 />
 
                 <Text style={styles.loginLabel}>Password</Text>
@@ -175,8 +201,8 @@ export default function Login() {
                         style={styles.input}
                         placeholder=""
                         secureTextEntry={!showPassword}
-                        value={password}
-                        onChangeText={setPassword}
+                        value={login.password}
+                        onChangeText={handlePasswordChange}
                     />
 
                     {loading ? (
