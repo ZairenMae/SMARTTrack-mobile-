@@ -20,26 +20,33 @@ import {
 } from "firebase/firestore"; // Add getDocs
 import { FIREBASE_DB } from "@/FirebaseConfig";
 
-interface Room {
-    id: string;
-    name: string;
-    code: string;
-    section: string;
-    startTime: number;
-    endTime: number;
-    days: string[];
-    students: Student[];
-}
-
-interface Student {
-    id: string;
+class Student {
+    id!: string;
     firstName: string;
     lastName: string;
+
+    constructor(id: string, firstName: string, lastName: string) {
+        this.id = id;
+        this.firstName = firstName;
+        this.lastName = lastName;
+    }
+}
+
+class RoomClass {
+    id!: string;
+    name!: string;
+    code!: string;
+    section!: string;
+    startTime!: number;
+    endTime!: number;
+    days!: string[];
+    students!: Student[];
+    teacherId?: string; 
 }
 
 const Home = () => {
     const { address, error } = useViewLocation();
-    const [rooms, setRooms] = useState<Room[]>([]);
+    const [rooms, setRooms] = useState<RoomClass[]>([]);
 
     const fetchRooms = async () => {
         try {
@@ -49,7 +56,7 @@ const Home = () => {
             const fetchedRooms = querySnapshot.docs.map((doc) => ({
                 id: doc.id,
                 ...doc.data(),
-            })) as Room[];
+            })) as RoomClass[];
             setRooms(fetchedRooms);
         } catch (error) {
             console.error("Error fetching rooms:", error);
@@ -67,8 +74,7 @@ const Home = () => {
             section={item.section}
             startTime={item.startTime}
             endTime={item.endTime}
-            roomCode={item.code}
-        />
+            roomCode={item.code} userType={""}        />
     );
 
     return (

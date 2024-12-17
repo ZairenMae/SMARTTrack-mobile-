@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, ScrollView } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from "react-native";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { FIREBASE_DB } from "@/FirebaseConfig";
+import { useLocalSearchParams } from "expo-router";
+import { useNavigation } from "@react-navigation/native"; 
 
 interface AttendanceRecord {
   userId: string;
@@ -17,14 +19,11 @@ interface AttendanceRecord {
 const Table = () => {
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
-  const [roomId, setRoomId] = useState<string | null>(null);
+
+  const { roomId } = useLocalSearchParams<{ roomId: string }>(); // Use expo-router to get the roomId
+  const navigation = useNavigation();
 
   useEffect(() => {
-    // Extract roomId from the URL
-    const urlParams = new URLSearchParams(window.location.search);
-    const roomIdParam = urlParams.get("roomId");
-    setRoomId(roomIdParam);
-
     const fetchAttendance = async (roomId: string) => {
       try {
         console.log(`Fetching attendance records for roomId: ${roomId}`);
@@ -93,13 +92,13 @@ const Table = () => {
       }
     };
 
-    if (roomIdParam) {
-      fetchAttendance(roomIdParam);
+    if (roomId) {
+      fetchAttendance(roomId);
     } else {
       console.error("Error: roomId is not provided in the URL.");
       setLoading(false);
     }
-  }, []);
+  }, [roomId]);
 
   const formatTime = (timestamp: number | null) => {
     if (!timestamp) return "N/A";
@@ -109,6 +108,9 @@ const Table = () => {
 
   return (
     <View style={styles.container}>
+      <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+        <Text style={styles.backButtonText}>Back</Text>
+      </TouchableOpacity>
       <Text style={styles.headerText}>Attendance Records</Text>
       {loading ? (
         <Text style={styles.loadingText}>Loading...</Text>
@@ -187,6 +189,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: "center",
     color: "#900",
+  },
+  backButton: {
+    alignSelf: "flex-start",
+    marginBottom: 16,
+    padding: 8,
+    backgroundColor: "#FF4D4D",
+    borderRadius: 4,
+  },
+  backButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "bold",
   },
 });
 

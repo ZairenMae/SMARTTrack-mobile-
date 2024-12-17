@@ -80,7 +80,6 @@ const CardRoom = ({
                 </View>
                 <View style={styles.details}>
                     <View style={styles.header}>
-                        <View style={styles.titleContainer}>
                             <Text
                                 style={styles.title}
                                 numberOfLines={1}
@@ -88,16 +87,14 @@ const CardRoom = ({
                             >
                                 {name || "Untitled"}
                             </Text>
-                        </View>
-
-                        {userType === "teacher" && ( // Show delete button only if userType is teacher
-                            <TouchableOpacity
-                                onPress={() => deleteRoom(id)}
-                                style={styles.deleteButton}
-                            >
-                                <Text style={styles.deleteButtonText}>X</Text>
-                            </TouchableOpacity>
-                        )}
+                            {userType === "teacher" && ( 
+                                <TouchableOpacity
+                                    onPress={() => deleteRoom(id)}
+                                    style={styles.deleteButton}
+                                >
+                                    <Text style={styles.deleteButtonText}>X</Text>
+                                </TouchableOpacity>
+                            )}
                     </View>
                     <Text style={styles.subtitle}>
                         {section || "No Section"}
@@ -162,49 +159,51 @@ const styles = StyleSheet.create({
         elevation: 5,
         flexDirection: "row",
         alignItems: "center",
-        width: 320,       // Fixed width in dp (similar to px)
-        height: 160,      // If you also want a fixed height
+        justifyContent: "space-between",
+        position: "relative",
+        width: "100%",
         padding: 10,
         overflow: "hidden",
+        flexWrap: "wrap",
     },
     
     bannerContainer: {
         flexDirection: "row",
         alignItems: "center",
-        flex: 1,
+        gap: 10,
     },
     banner: {
         backgroundColor: "#000",
         borderRadius: 5,
         height: 100,
-        width: 100,
+        aspectRatio: 1,
         overflow: "hidden",
-        marginRight: 10,
+        margin: 8,
     },
     bannerImage: {
         width: "100%",
         height: "100%",
     },
     details: {
-        flex: 1,
+        width: "55%",
         flexDirection: "column",
         alignItems: "flex-start",
+        flexWrap: "wrap",
     },
     header: {
+        width: "100%",
+        flex: 1,
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-between",
-        width: "100%",  // Ensure the header takes full width
     },
     title: {
         fontWeight: "bold",
         fontSize: 20,
         textAlign: "left",
         flexShrink: 0, // Prevent shrinking
-        marginRight: 10,
-    },
-    titleContainer: {
-        flex: 1,
+        flexWrap: "wrap",
+        width: "80%",
     },
     deleteButton: {
         paddingHorizontal: 10,
@@ -219,7 +218,6 @@ const styles = StyleSheet.create({
     subtitle: {
         fontSize: 14,
         color: "#aaa",
-        marginTop: 2,
     },
     roomCode: {
         marginTop: 5,
@@ -227,11 +225,7 @@ const styles = StyleSheet.create({
         fontSize: 16,
         color: "#333",
     },
-    cardButtons: {
-        flexDirection: "row",
-        alignItems: "center",
-        marginTop: 5,
-    },
+    
     modalOverlay: {
         flex: 1,
         justifyContent: "center",
@@ -261,7 +255,13 @@ const styles = StyleSheet.create({
     roomCodeText: {
         fontSize: 18,
         fontWeight: "bold",
-        marginBottom: 10,
+        flex: 1,
+    },
+    cardButtons: {
+        flex: 1,
+        width: "100%",
+        alignItems: "center",
+        flexDirection: "row",
     },
 });
 

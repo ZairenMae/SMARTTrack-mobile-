@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from "react-native";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import { FIREBASE_DB } from "@/FirebaseConfig";
+import { useLocalSearchParams, useRouter } from "expo-router";
 
 interface Room {
   id: string;
@@ -14,14 +15,10 @@ interface Room {
 const Attendance = () => {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [loading, setLoading] = useState(true);
-  const [uid, setUid] = useState<string | null>(null);
+  const { uid } = useLocalSearchParams(); // Get the UID from the search params
+  const router = useRouter();
 
   useEffect(() => {
-    // Extract UID from the URL
-    const urlParams = new URLSearchParams(window.location.search);
-    const userId = urlParams.get("uid");
-    setUid(userId);
-
     const fetchRooms = async (uid: string) => {
       try {
         const roomsRef = collection(FIREBASE_DB, "rooms");
@@ -47,13 +44,13 @@ const Attendance = () => {
       }
     };
 
-    if (userId) {
-      fetchRooms(userId);
+    if (uid) {
+      fetchRooms(uid as string); // Ensure uid is treated as a string
     } else {
       console.error("Error: UID is not provided in the URL.");
       setLoading(false);
     }
-  }, []);
+  }, [uid]);
 
   // Convert timestamp to AM/PM format
   const formatTime = (timestamp: number) => {
@@ -63,8 +60,7 @@ const Attendance = () => {
 
   // Handle room selection
   const handleRoomSelect = (roomId: string) => {
-    const url = `/userpage/table?roomId=${encodeURIComponent(roomId)}`;
-    window.location.href = url; // Redirect to table.tsx with room ID
+    router.push(`/userpage/table?roomId=${encodeURIComponent(roomId)}`);
   };
 
   return (

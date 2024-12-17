@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View, TouchableOpacity, Modal } from "react-native";
+import { StyleSheet, Text, View, TouchableOpacity, Modal, FlatList } from "react-native";
 import React, { useState, useEffect } from "react";
 import { collection, getDocs, getDoc, doc, addDoc, query, where } from "firebase/firestore";
 import { FIREBASE_DB } from "../../FirebaseConfig";
@@ -158,10 +158,7 @@ const Home = () => {
         setTimeMessage(status);
         setTimeModalVisible(true);
    
-        // Check if it's time for a timeout button to show
-        if (currentTime >= room.endTime - 30 * 60 * 1000) {
-            setShowTimeoutButton(true);
-        }
+        setShowTimeoutButton(true);
     };
    
  
@@ -196,6 +193,42 @@ const Home = () => {
         // Reset showTimeoutButton after filtering rooms
         setShowTimeoutButton(false);
     };
+
+    const renderRoom = ({ item }: { item: Room }) => (
+        <View style={styles.roomBox}>
+            <View style={styles.roomContent}>
+                <View style={styles.defaultImage} />
+                <View>
+                    <Text style={[styles.roomText, styles.boldText]}>
+                        Subject: {item.name}
+                    </Text>
+                    <Text style={[styles.roomText, styles.boldText]}>
+                        Section: {item.section}
+                    </Text>
+                    <Text style={[styles.roomText, styles.boldText]}>
+                        Start Time: {formatDateTime(item.startTime)}
+                    </Text>
+                    <Text style={[styles.roomText, styles.boldText]}>
+                        End Time: {formatDateTime(item.endTime)}
+                    </Text>
+                </View>
+            </View>
+            <TouchableOpacity
+                style={styles.timeInButton}
+                onPress={() => handleTime(item)}
+            >
+                <Text style={styles.buttonText}>Time In</Text>
+            </TouchableOpacity>
+            {showTimeoutButton && currentRoom?.id === item.id && (
+                <TouchableOpacity
+                    style={styles.timeInButton}
+                    onPress={() => handleTimeOut(item)}
+                >
+                    <Text style={styles.buttonText}>Time Out</Text>
+                </TouchableOpacity>
+            )}
+        </View>
+    );
  
     return (
         <View style={styles.container}>
@@ -212,58 +245,31 @@ const Home = () => {
             </View>
             <View style={styles.roomContainer}>
                 {filteredRooms.length > 0 ? (
-                    filteredRooms.map((room) => (
-                        <View key={room.id} style={styles.roomBox}>
-                            <View style={styles.roomContent}>
-                                <View style={styles.defaultImage} />
-                                <View>
-                                    <Text style={[styles.roomText, styles.boldText]}>
-                                        Subject: {room.name}
-                                    </Text>
-                                    <Text style={[styles.roomText, styles.boldText]}>
-                                        Section: {room.section}
-                                    </Text>
-                                    <Text style={[styles.roomText, styles.boldText]}>
-                                        Start Time: {formatDateTime(room.startTime)}
-                                    </Text>
-                                    <Text style={[styles.roomText, styles.boldText]}>
-                                        End Time: {formatDateTime(room.endTime)}
-                                    </Text>
-                                </View>
-                            </View>
-   
-                            <Text style={styles.attendanceText}>
-                                {currentRoom?.id === room.id && timeMessage}
+                    <FlatList
+                        data={filteredRooms}
+                        renderItem={renderRoom}
+                        keyExtractor={(item) => item.id}
+                        contentContainerStyle={{ paddingBottom: 20 }}
+                        ListEmptyComponent={
+                            <Text style={styles.noRoomsText}>
+                                No rooms available for today.
                             </Text>
-   
-                            {currentRoom?.id !== room.id && (
-                                <TouchableOpacity
-                                    style={styles.timeInButton}
-                                    onPress={() => handleTime(room)}
-                                >
-                                    <Text style={styles.buttonText}>Time In</Text>
-                                </TouchableOpacity>
-                            )}
-   
-                            {showTimeoutButton && currentRoom?.id === room.id && (
-                                <TouchableOpacity
-                                    style={styles.timeInButton}
-                                    onPress={() => handleTimeOut(room)}
-                                >
-                                    <Text style={styles.buttonText}>Time Out</Text>
-                                </TouchableOpacity>
-                            )}
-                        </View>
-                    ))
+                        }
+                    />
                 ) : (
-                    <Text style={styles.noRoomsText}>No rooms available for today.</Text>
+                    <Text style={styles.noRoomsText}>
+                        No rooms available for today.
+                    </Text>
                 )}
             </View>
-   
+    
+            {/* Modal for Time Message */}
             <Modal visible={timeModalVisible} transparent animationType="slide">
                 <View style={styles.modalContainer}>
                     <View style={styles.modalContent}>
-                        <Text style={[styles.modalText, { color: 'blue' }]}>{timeMessage}</Text>
+                        <Text style={[styles.modalText, { color: "blue" }]}>
+                            {timeMessage}
+                        </Text>
                         <TouchableOpacity
                             style={styles.closeButton}
                             onPress={() => setTimeModalVisible(false)}
@@ -313,6 +319,7 @@ const styles = StyleSheet.create({
         width: "100%",
         paddingHorizontal: 20,
         marginTop: 20,
+        paddingBottom: 95,
     },
     roomBox: {
         backgroundColor: "#FFF",
@@ -328,6 +335,7 @@ const styles = StyleSheet.create({
     roomContent: {
         flexDirection: "row",
         alignItems: "center",
+        flexWrap: "wrap"
     },
     defaultImage: {
         width: 50,
@@ -340,9 +348,11 @@ const styles = StyleSheet.create({
         fontSize: 16,
         color: "#333",
         marginBottom: 5,
+        flexWrap: "wrap",
     },
     boldText: {
         fontWeight: "bold",
+        flexWrap: "wrap",
     },
     timeInButton: {
         marginTop: 10,
